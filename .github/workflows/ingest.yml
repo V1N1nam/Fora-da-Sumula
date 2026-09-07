@@ -37,14 +37,14 @@ jobs:
       - name: Elo + Monte Carlo
         run: python src/elo.py
 
-      - name: Gerar site/index.html
+      - name: Gerar docs/index.html
         run: python src/build_site.py
 
       - name: Commitar se mudou
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/ site/
+          git add data/ docs/
           if git diff --staged --quiet; then
             echo "nada mudou"
           else

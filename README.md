@@ -33,20 +33,22 @@ python src/calibrate_elo.py
 # 4. Rating + Monte Carlo do restante da temporada corrente
 python src/elo.py
 
-# 5. Gera site/index.html a partir do template fora-da-sumula-v3.html
+# 5. Gera docs/index.html a partir do template fora-da-sumula-v3.html
 python src/build_site.py
 ```
 
-Depois disso, commite `data/` e `site/`, e o Actions assume: segunda e
+Depois disso, commite `data/` e `docs/`, e o Actions assume: segunda e
 quinta ele busca só a temporada corrente, recalcula e regera o site.
 
 ## GitHub Pages precisa ser configurado manualmente uma vez
 
-O workflow gera `site/index.html` e commita, mas não liga o Pages
+O workflow gera `docs/index.html` e commita, mas não liga o Pages
 sozinho. Depois do primeiro push: Settings → Pages → Build and
 deployment → Source: "Deploy from a branch" → Branch: `main`, pasta
-`/site`. Sem isso o arquivo fica no repositório mas não é servido em
-lugar nenhum.
+`/docs`. **Não existe opção de pasta arbitrária aqui** -- o dropdown do
+GitHub só aceita `/ (root)` ou `/docs`, por isso o gerador escreve em
+`docs/` e não em `site/`. Sem essa configuração o arquivo fica no
+repositório mas não é servido em lugar nenhum.
 
 ## O secret do GitHub Actions precisa existir antes do primeiro run
 
@@ -146,8 +148,8 @@ src/probe_schema.py        dump do schema real
 src/calibrate_elo.py       grid search de K/HFA + Davidson nu (one-off)
 src/elo.py                 rating + Monte Carlo -> data/processed/*.parquet
 src/validate_elo.py        validacao do modelo (rode quando ele mudar)
-src/build_site.py          data/processed + data/raw -> site/index.html
+src/build_site.py          data/processed + data/raw -> docs/index.html
 fora-da-sumula-v3.html     template do site (design aprovado; so o payload muda)
-site/index.html            gerado -- e o que o GitHub Pages serve
+docs/index.html            gerado -- e o que o GitHub Pages serve (pasta fixa do Pages)
 .github/workflows/         agendamento, commit e build do site automáticos
 ```

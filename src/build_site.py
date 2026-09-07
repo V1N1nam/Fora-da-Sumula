@@ -1,5 +1,9 @@
-"""Le data/processed + data/raw, monta o objeto DATA e gera site/index.html
+"""Le data/processed + data/raw, monta o objeto DATA e gera docs/index.html
 a partir do template aprovado fora-da-sumula-v3.html.
+
+Pasta e "docs" (nao "site") porque o GitHub Pages, no modo "Deploy from
+a branch", so aceita "/ (root)" ou "/docs" como pasta de publicacao --
+nao existe opcao de pasta arbitraria.
 
 So o payload muda: o bloco `const DATA = {...}`, o texto da manchete da
 home (gerado a partir dos dados -- ver build_headline) e a linha
@@ -22,7 +26,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from config import CURRENT_SEASON, ELO_DRAW_NU, ELO_HFA, PROCESSED, RAW, ROOT  # noqa: E402
 
 TEMPLATE = ROOT / "fora-da-sumula-v3.html"
-OUTPUT = ROOT / "site" / "index.html"
+OUTPUT = ROOT / "docs" / "index.html"
 
 DECIDED_THRESHOLD = 0.85
 

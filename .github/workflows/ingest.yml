@@ -1,0 +1,53 @@
+name: ingest
+
+on:
+  schedule:
+    # Segunda e quinta, 09:00 UTC (06:00 BRT), depois das rodadas
+    # de domingo e de quarta. Cron do Actions e sempre UTC.
+    - cron: "0 9 * * 1,4"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ingest
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Ingest da temporada corrente
+        env:
+          FOOTBALL_DATA_TOKEN: ${{ secrets.FOOTBALL_DATA_TOKEN }}
+        run: python src/ingest.py
+
+      - name: Elo + Monte Carlo
+        run: python src/elo.py
+
+      - name: Gerar site/index.html
+        run: python src/build_site.py
+
+      - name: Commitar se mudou
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/ site/
+          if git diff --staged --quiet; then
+            echo "nada mudou"
+          else
+            git commit -m "dados: rodada de $(date -u +%Y-%m-%d)"
+            git push
+          fi

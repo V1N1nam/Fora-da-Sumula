@@ -30,6 +30,15 @@ OUTPUT = ROOT / "docs" / "index.html"
 
 DECIDED_THRESHOLD = 0.85
 
+# A football-data.org devolve "Mineiro" e "Paranaense" como short_name
+# dos dois Atleticos -- nome tecnicamente correto (evita colisao entre
+# eles), mas nao e como o torcedor chama o clube. Normaliza pro nome
+# popular so nesses dois casos.
+SHORT_NAME_OVERRIDES = {
+    1766: "Atlético-MG",   # CA Mineiro
+    1768: "Athletico-PR",  # CA Paranaense
+}
+
 
 def build_data() -> dict:
     probs = pd.read_parquet(PROCESSED / "elo_probabilidades.parquet")
@@ -50,9 +59,10 @@ def build_data() -> dict:
         rg = ratings[ratings["team_id"] == tid].sort_values("round")
         assert list(pg["round"]) == rounds and list(rg["round"]) == rounds
 
+        default_short = standings_now.loc[tid, "short_name"] if tid in standings_now.index else pg["team"].iloc[0]
         row = {
             "team": pg["team"].iloc[0],
-            "short_name": standings_now.loc[tid, "short_name"] if tid in standings_now.index else pg["team"].iloc[0],
+            "short_name": SHORT_NAME_OVERRIDES.get(tid, default_short),
             "titulo": [round(float(v), 4) for v in pg["titulo_prob"]],
             "g4": [round(float(v), 4) for v in pg["g4_prob"]],
             "z4": [round(float(v), 4) for v in pg["z4_prob"]],

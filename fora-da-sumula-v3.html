@@ -18,16 +18,17 @@ body{font-family:Archivo,system-ui,sans-serif;background:var(--paper);color:var(
 @media(max-width:480px){.shell{border:none}}
 @media(min-width:700px){.page{padding:32px 40px 56px}}
 .top{display:flex;align-items:baseline;justify-content:space-between;padding:18px 20px 14px;
- border-bottom:1px solid var(--line)}
+ border-bottom:1px solid var(--line);max-width:720px;margin:0 auto}
 .logo{font-size:17px;font-weight:600;letter-spacing:-.02em}
 .round{font-size:13px;color:var(--mute)}
 nav{display:flex;gap:2px;padding:10px 20px;border-bottom:1px solid var(--line);
- position:sticky;top:0;background:var(--card);z-index:10;overflow-x:auto}
+ position:sticky;top:0;background:var(--card);z-index:10;overflow-x:auto;
+ max-width:720px;margin:0 auto}
 nav button{font:inherit;font-size:13px;color:var(--mute);background:none;border:none;
  padding:6px 11px;border-radius:100px;cursor:pointer;white-space:nowrap}
 nav button[aria-current="true"]{background:var(--ink);color:#fff}
 nav button:focus-visible{outline:2px solid var(--good);outline-offset:2px}
-.page{display:none;padding:22px 20px 44px}.page.on{display:block}
+.page{display:none;padding:22px 20px 44px;max-width:720px;margin:0 auto}.page.on{display:block}
 h1{font-size:26px;font-weight:600;letter-spacing:-.03em;line-height:1.15;margin-bottom:10px}
 .answer{font-size:16px;line-height:1.55;margin-bottom:20px;max-width:640px}
 .answer b{font-weight:600}

@@ -40,11 +40,29 @@ SHORT_NAME_OVERRIDES = {
 }
 
 
+def build_short_names(standings: pd.DataFrame) -> dict[int, str]:
+    """Nome curto canonico por clube, mesmo pra clube fora da temporada
+    corrente (usado em zebras/h2h, que cobrem 2023-2026 inteiro): pega o
+    short_name da temporada mais recente em que o clube apareceu, com as
+    mesmas correcoes de nome popular aplicadas na tabela atual."""
+    latest = standings.sort_values("season").groupby("team_id").last()["short_name"]
+    names = {int(tid): name for tid, name in latest.items()}
+    names.update(SHORT_NAME_OVERRIDES)
+    return names
+
+
 def build_data() -> dict:
     probs = pd.read_parquet(PROCESSED / "elo_probabilidades.parquet")
     ratings = pd.read_parquet(PROCESSED / "elo_ratings.parquet")
     standings = pd.read_parquet(RAW / "standings.parquet")
     standings_now = standings[standings["season"] == CURRENT_SEASON].set_index("team_id")
+    short_names = build_short_names(standings)
+
+    xpts = pd.read_parquet(PROCESSED / "xpts_forca.parquet")
+    xpts_now = xpts[xpts["season"] == CURRENT_SEASON].set_index("team_id")
+    seq = pd.read_parquet(PROCESSED / "sequencias.parquet").set_index("team_id")
+    mando = pd.read_parquet(PROCESSED / "mando_clube.parquet").set_index("team_id")
+    cenarios = pd.read_parquet(PROCESSED / "cenarios.parquet").set_index("team_id")
 
     rounds = sorted(int(x) for x in probs["round"].unique())
     current_round = rounds[-1]
@@ -79,6 +97,48 @@ def build_data() -> dict:
             row["real_gf"] = int(s["goals_for"])
             row["real_ga"] = int(s["goals_against"])
             row["real_gd"] = int(s["goal_difference"])
+
+        if tid in xpts_now.index:
+            x = xpts_now.loc[tid]
+            row["xpts_jogos"] = int(x["jogos"])
+            row["xpts_pontos_reais"] = int(x["pontos_reais"])
+            row["xpts_valor"] = round(float(x["xpts"]), 1)
+            row["xpts_diferenca"] = round(float(x["diferenca"]), 1)
+
+        if tid in seq.index:
+            sq = seq.loc[tid]
+            row["seq_invicto_atual"] = int(sq["invencibilidade_atual"])
+            row["seq_invicto_recorde"] = int(sq["invencibilidade_recorde"])
+            row["seq_invicto_desde"] = (
+                sq["invencibilidade_atual_desde"].date().isoformat()
+                if pd.notna(sq["invencibilidade_atual_desde"]) else None
+            )
+            row["seq_vitorias_atual"] = int(sq["vitorias_atual"])
+            row["seq_vitorias_recorde"] = int(sq["vitorias_recorde"])
+            row["seq_vitorias_desde"] = (
+                sq["vitorias_atual_desde"].date().isoformat()
+                if pd.notna(sq["vitorias_atual_desde"]) else None
+            )
+
+        if tid in mando.index:
+            m = mando.loc[tid]
+            row["mando_temporadas"] = int(m["temporadas"])
+            row["mando_ppg_casa"] = round(float(m["ppg_casa"]), 2)
+            row["mando_ppg_fora"] = round(float(m["ppg_fora"]), 2)
+            row["mando_liga_ppg_casa"] = round(float(m["liga_ppg_casa"]), 2)
+            row["mando_liga_ppg_fora"] = round(float(m["liga_ppg_fora"]), 2)
+            row["mando_liga_vantagem"] = round(float(m["liga_vantagem_mando"]), 2)
+            row["mando_vantagem"] = round(float(m["vantagem_mando"]), 2)
+            row["mando_vantagem_relativa"] = round(float(m["vantagem_relativa"]), 2)
+
+        if tid in cenarios.index:
+            c = cenarios.loc[tid]
+            for col in (
+                "titulo_confirmado", "titulo_descartado", "g4_confirmado",
+                "g4_descartado", "z4_confirmado", "z4_descartado",
+            ):
+                row[col] = bool(c[col])
+
         teams[str(tid)] = row
 
     return {
@@ -86,7 +146,63 @@ def build_data() -> dict:
         "rounds": rounds,
         "team_order": [str(t) for t in team_order],
         "teams": teams,
+        "zebras": build_zebras(short_names),
+        "ritmo": build_ritmo(),
+        "h2h": build_h2h(team_order, short_names),
     }
+
+
+def build_zebras(short_names: dict[int, str], n: int = 15) -> list[dict]:
+    """15 partidas mais improvaveis de 2023-2026, mais recente primeiro
+    em caso de empate na probabilidade."""
+    z = pd.read_parquet(PROCESSED / "zebras.parquet")
+    z = z.sort_values(["probabilidade", "date"], ascending=[True, False]).head(n)
+    out = []
+    for row in z.itertuples(index=False):
+        out.append(
+            {
+                "date": row.date.date().isoformat(),
+                "mandante": short_names.get(int(row.mandante_id), row.mandante),
+                "visitante": short_names.get(int(row.visitante_id), row.visitante),
+                "placar": row.placar,
+                "probabilidade": round(float(row.probabilidade), 4),
+            }
+        )
+    return out
+
+
+def build_ritmo() -> dict[str, list[int]]:
+    """Pontos do lider por rodada, por temporada -- pra sobrepor o ritmo
+    da temporada corrente ao das 3 anteriores no mesmo eixo de rodada."""
+    r = pd.read_parquet(PROCESSED / "ritmo_campeao.parquet")
+    out = {}
+    for season, g in r.groupby("season"):
+        g = g.sort_values("round")
+        out[str(int(season))] = [int(v) for v in g["leader_points"]]
+    return out
+
+
+def build_h2h(team_order: list[int], short_names: dict[int, str]) -> dict[str, dict]:
+    """Confronto direto, so entre pares dos 20 clubes da temporada
+    corrente (o simulador de confronto na pagina Forca so oferece esses
+    20) -- os outros 336 pares de h2h.parquet nao tem onde aparecer."""
+    h = pd.read_parquet(PROCESSED / "h2h.parquet")
+    current = set(team_order)
+    h = h[h["team_a_id"].isin(current) & h["team_b_id"].isin(current)]
+    out = {}
+    for row in h.itertuples(index=False):
+        key = f"{row.team_a_id}_{row.team_b_id}"
+        out[key] = {
+            "a": row.team_a_id,
+            "b": row.team_b_id,
+            "jogos": int(row.jogos),
+            "va": int(row.vitorias_a),
+            "empates": int(row.empates),
+            "vb": int(row.vitorias_b),
+            "ga": round(float(row.media_gols_a), 2),
+            "gb": round(float(row.media_gols_b), 2),
+        }
+    return out
 
 
 def build_headline(data: dict) -> tuple[str, str]:
@@ -160,6 +276,16 @@ def main() -> None:
     new_line = f"const HFA={fmt_num(ELO_HFA)}, NU={fmt_num(ELO_DRAW_NU)};"
     assert old_line in template, "nao achei a linha 'const HFA=...' no template"
     template = template.replace(old_line, new_line, 1)
+
+    # 4. numero da rodada no cabecalho -- ficava fixo no template
+    # (bug latente: nunca era substituido, entao o cabecalho ia
+    # congelar na rodada do momento em que o template foi escrito).
+    template, n = re.subn(
+        r'<span class="round">rodada \d+</span>',
+        f'<span class="round">rodada {data["current_round"]}</span>',
+        template, count=1,
+    )
+    assert n == 1, "nao achei o span.round no template"
 
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT.write_text(template, encoding="utf-8", newline="\n")

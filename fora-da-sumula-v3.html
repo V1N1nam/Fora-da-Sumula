@@ -87,6 +87,14 @@ table.champ td:nth-child(2):hover{text-decoration:underline}
 table.champ td:nth-child(3){font-weight:600}
 table.champ tr:last-child td{border-bottom:none}
 table.champ tr.edge td{border-bottom:2px solid var(--ink)}
+.tag{display:inline-block;font-size:9.5px;font-weight:600;letter-spacing:.02em;
+ padding:1px 5px;border-radius:4px;margin-left:5px;vertical-align:middle}
+.tag.good{background:var(--goodbg);color:var(--good)}
+.tag.bad{background:var(--badbg);color:var(--bad)}
+.zrow{padding:9px 0;border-bottom:1px solid var(--line);font-size:13.5px;max-width:640px}
+.zrow:last-child{border:none}
+.zrow .zm{font-weight:500}
+.zrow .zd{color:var(--mute);font-size:12px;margin-top:2px}
 </style>
 </head>
 <body>
@@ -96,6 +104,8 @@ table.champ tr.edge td{border-bottom:2px solid var(--ink)}
 <nav id="nav" aria-label="Páginas">
   <button data-p="corrida" aria-current="true">A corrida</button>
   <button data-p="tabela">Tabela</button>
+  <button data-p="sorte">Sorte</button>
+  <button data-p="zebras">Zebras</button>
   <button data-p="clubes">Clube a clube</button>
   <button data-p="time">Um time</button>
   <button data-p="forca">Força</button>
@@ -114,6 +124,12 @@ table.champ tr.edge td{border-bottom:2px solid var(--ink)}
   <div id="raceChart"></div>
   <p class="leg">A liderança trocou de mãos seis vezes desde a rodada 20.
     Com 12 jogos pra acabar, um tropeço ainda vira tudo.</p>
+
+  <div class="sec">Ritmo do líder</div>
+  <div id="ritmoChart"></div>
+  <p class="leg">Pontos acumulados de quem lidera a tabela, rodada a
+    rodada. As linhas claras são as temporadas anteriores; a atual
+    aparece em destaque.</p>
 </section>
 
 <section class="page" id="tabela">
@@ -124,6 +140,22 @@ table.champ tr.edge td{border-bottom:2px solid var(--ink)}
   <p class="leg">A linha mais forte separa o G4 (1º-4º) e o Z4 (últimos
     4) do resto da tabela. Toque no nome do clube pra ver a temporada
     dele.</p>
+</section>
+
+<section class="page" id="sorte">
+  <h1>Quem está tendo mais sorte?</h1>
+  <p class="answer" id="sorteAnswer"></p>
+  <div id="sorteList"></div>
+  <p class="leg">Isso mede sorte contra a força do adversário, não contra
+    a qualidade das chances criadas.</p>
+</section>
+
+<section class="page" id="zebras">
+  <h1>As maiores zebras</h1>
+  <p class="answer" id="zebrasAnswer"></p>
+  <div id="zebrasList"></div>
+  <p class="leg">As 15 partidas mais improváveis desde 2023, pela força
+    dos dois times na hora do jogo.</p>
 </section>
 
 <section class="page" id="clubes">
@@ -144,6 +176,12 @@ table.champ tr.edge td{border-bottom:2px solid var(--ink)}
   <div id="teamHead"></div>
   <div id="teamChart"></div>
   <p class="leg">Verde é chance de título, azul é G4, vermelho é rebaixamento.</p>
+
+  <div class="sec">Sequências</div>
+  <div id="teamSeq"></div>
+
+  <div class="sec">Mando de campo</div>
+  <div id="teamMando"></div>
 </section>
 
 <section class="page" id="forca">
@@ -200,6 +238,11 @@ const C={ink:'#1A1D1F',mute:'#6E7679',line:'#E3E6E7',good:'#0F7A5A',bad:'#C2402F
 const T=DATA.teams, ORD=DATA.team_order, R=DATA.rounds, N=R.length;
 const svg=(vb,i)=>`<svg viewBox="${vb}" role="img">${i}</svg>`;
 const pc=v=>Math.round(v*100)+'%';
+const pc1=v=>(v*100).toFixed(1).replace('.',',')+'%';
+const meses=['janeiro','fevereiro','março','abril','maio','junho','julho',
+  'agosto','setembro','outubro','novembro','dezembro'];
+const fmtDate=iso=>{const [y,m,d]=iso.split('-');return `${d}/${m}/${y}`;};
+const fmtMonthYear=iso=>{const [y,m]=iso.split('-');return `${meses[parseInt(m,10)-1]} de ${y}`;};
 
 /* corrida do título */
 function raceChart(){
@@ -220,6 +263,15 @@ function raceChart(){
   return svg(`0 0 ${W} ${H}`,g);
 }
 
+/* selo curto de cenario matematico -- prioriza o mais notavel, um so por clube */
+function cenarioTag(t){
+  if(t.titulo_confirmado) return ' <span class="tag good">campeão</span>';
+  if(t.z4_confirmado) return ' <span class="tag bad">rebaixado</span>';
+  if(t.g4_confirmado) return ' <span class="tag good">G4 garantido</span>';
+  if(t.z4_descartado) return ' <span class="tag good">não cai mais</span>';
+  return '';
+}
+
 /* tabela real do campeonato -- so fato bruto, sem titulo/g4/z4 */
 function tabelaChamp(){
   const NT=ORD.length;
@@ -229,7 +281,7 @@ function tabelaChamp(){
     const cls=(p===4||p===NT-4)?' class="edge"':'';
     return `<tr${cls}>
       <td>${p}</td>
-      <td data-k="${k}">${t.short_name}</td>
+      <td data-k="${k}">${t.short_name}${cenarioTag(t)}</td>
       <td>${t.real_points}</td>
       <td>${t.real_played}</td>
       <td>${t.real_won}</td>
@@ -260,6 +312,71 @@ function clubList(metric){
       </span></div>`;}).join('');
 }
 
+/* sorte contra a força do adversário -- diferenca do xPTS por força */
+function sorteList(){
+  const v=ORD.map(k=>({k,d:T[k].xpts_diferenca})).sort((a,b)=>b.d-a.d);
+  const mx=Math.max(...v.map(x=>Math.abs(x.d)),1);
+  return v.map(({k,d})=>{
+    const col=d>=0?C.good:C.bad, len=Math.abs(d)/mx*50;
+    return `<div class="vrow"><span>${T[k].short_name}</span>
+      <span class="vnum" style="color:${col}">${d>0?'+':''}${d.toFixed(1)}</span>
+      <span>${svg('0 0 104 14',
+        `<line x1="52" y1="0" x2="52" y2="14" stroke="${C.line}"/>
+         <rect x="${d>=0?52:52-len}" y="3" width="${Math.max(len,0.8)}" height="8" fill="${col}"/>`)}</span>
+    </div>`;}).join('');
+}
+function sorteAnswer(){
+  const v=ORD.map(k=>({k,d:T[k].xpts_diferenca})).sort((a,b)=>b.d-a.d);
+  const top=v[0], bot=v[v.length-1];
+  return `Na rodada atual, o <b>${T[top.k].short_name}</b> é quem mais superou o que a força dos
+    adversários sugeria (<b>${top.d>0?'+':''}${top.d.toFixed(1)} pontos</b> a mais do que o esperado).
+    Do outro lado, o <b>${T[bot.k].short_name}</b> é quem mais ficou devendo
+    (<b>${bot.d.toFixed(1)} pontos</b> a menos).`;
+}
+
+/* maiores zebras -- ja vem pronta e ordenada do payload */
+function zebrasList(){
+  return DATA.zebras.map(z=>`<div class="zrow">
+      <div class="zm">${z.mandante} ${z.placar} ${z.visitante}</div>
+      <div class="zd">${fmtDate(z.date)} · modelo dava ${pc1(z.probabilidade)} pra isso</div>
+    </div>`).join('');
+}
+function zebrasAnswer(){
+  const z=DATA.zebras[0];
+  return `A maior zebra da amostra: <b>${z.mandante} ${z.placar} ${z.visitante}</b>, um resultado que
+    o modelo dava só <b>${pc1(z.probabilidade)}</b> de chance.`;
+}
+
+/* ritmo do lider -- pontos acumulados de quem lidera, rodada a rodada */
+function ritmoChart(){
+  const W=380,H=210,pl=8,pr=50,pt=12,pb=26;
+  const seasons=Object.keys(DATA.ritmo).sort();
+  const curSeason=seasons[seasons.length-1];
+  const maxN=Math.max(...seasons.map(s=>DATA.ritmo[s].length));
+  const maxPts=Math.max(...seasons.flatMap(s=>DATA.ritmo[s]))+4;
+  const sx=i=>pl+i/(maxN-1)*(W-pl-pr), sy=v=>H-pb-v/maxPts*(H-pt-pb);
+  let g='';
+  [0,.25,.5,.75,1].forEach(f=>{const v=Math.round(maxPts*f);
+    g+=`<line x1="${pl}" y1="${sy(v)}" x2="${W-pr}" y2="${sy(v)}" stroke="${C.line}"/>
+      <text x="${W-pr+5}" y="${sy(v)+4}" font-size="10" fill="${C.mute}">${v}</text>`;});
+  const labels=[];
+  seasons.filter(s=>s!==curSeason).forEach(s=>{
+    const pts=DATA.ritmo[s];
+    g+=`<polyline points="${pts.map((v,i)=>sx(i)+','+sy(v)).join(' ')}" fill="none" stroke="${C.flat}" stroke-width="1.4"/>`;
+    labels.push({nm:s,col:C.mute,y:sy(pts[pts.length-1]),x:sx(pts.length-1)});});
+  const pts2=DATA.ritmo[curSeason];
+  const nowLeader=ORD.find(k=>T[k].real_position===1) || curSeason;
+  g+=`<polyline points="${pts2.map((v,i)=>sx(i)+','+sy(v)).join(' ')}" fill="none" stroke="${C.good}" stroke-width="2.4" stroke-linejoin="round"/>
+      <circle cx="${sx(pts2.length-1)}" cy="${sy(pts2[pts2.length-1])}" r="3.6" fill="${C.good}"/>`;
+  labels.push({nm:T[nowLeader]?T[nowLeader].short_name:curSeason,col:C.good,y:sy(pts2[pts2.length-1]),x:sx(pts2.length-1)});
+  labels.sort((a,b)=>a.y-b.y);
+  for(let i=1;i<labels.length;i++){const minGap=12;
+    if(labels[i].y-labels[i-1].y<minGap) labels[i].y=labels[i-1].y+minGap;}
+  labels.forEach(l=>{g+=`<text x="${l.x+5}" y="${(l.y+4).toFixed(1)}" font-size="10.5" font-weight="500" fill="${l.col}">${l.nm}</text>`;});
+  [1,10,20,30,38].forEach(r=>{if(r>maxN&&r!==1)return;g+=`<text x="${sx(r-1)}" y="${H-7}" text-anchor="middle" font-size="10" fill="${C.mute}">${r}</text>`;});
+  return svg(`0 0 ${W} ${H}`,g);
+}
+
 /* trajetória de um clube */
 function teamChart(k){
   const W=380,H=195,pl=8,pr=64,pt=12,pb=26;
@@ -286,6 +403,33 @@ function teamHead(k){
   return `<div class="duo"><div><div class="n" style="color:${best[2]}">${pc(best[1])}</div>
     <div class="c">chance de ${best[0]}</div></div>
     <div><div class="n">${x.real_position}º</div><div class="c">${x.real_points} pontos<br>na tabela</div></div></div>`;
+}
+
+/* sequencias -- sempre com data, nunca so o numero pelado (pode cruzar temporada) */
+function teamSeq(k){
+  const t=T[k];
+  const inv=t.seq_invicto_atual>0
+    ? `Invicto há <b>${t.seq_invicto_atual} jogo${t.seq_invicto_atual>1?'s':''}</b>, desde ${fmtMonthYear(t.seq_invicto_desde)}.`
+    : `Não está invicto no momento.`;
+  const win=t.seq_vitorias_atual>0
+    ? `<b>${t.seq_vitorias_atual} vitória${t.seq_vitorias_atual>1?'s':''} seguida${t.seq_vitorias_atual>1?'s':''}</b>, desde ${fmtMonthYear(t.seq_vitorias_desde)}.`
+    : `Não vem de vitória.`;
+  return `<p class="body">${inv} O recorde do clube é de <b>${t.seq_invicto_recorde} jogos</b> sem perder.</p>
+    <p class="body">${win} O recorde é de <b>${t.seq_vitorias_recorde} vitórias</b> seguidas.</p>`;
+}
+
+/* vantagem de mando do clube vs media da liga -- regra de amostra pequena */
+function teamMando(k){
+  const t=T[k];
+  if(t.mando_temporadas<3){
+    return `<p class="body m">Amostra pequena (${t.mando_temporadas} temporada${t.mando_temporadas>1?'s':''} de dado):
+      em casa o ${t.short_name} fez ${t.mando_ppg_casa} pontos por jogo, fora ${t.mando_ppg_fora}. Ainda não dá pra
+      comparar com confiança contra a média da liga.</p>`;
+  }
+  const rel=t.mando_vantagem-t.mando_liga_vantagem, col=rel>=0?C.good:C.bad;
+  return `<p class="body">Em casa o ${t.short_name} faz <b>${t.mando_ppg_casa}</b> pontos por jogo; fora, <b>${t.mando_ppg_fora}</b>.
+    A vantagem de mando do clube (<b style="color:${col}">${t.mando_vantagem>0?'+':''}${t.mando_vantagem}</b>) fica
+    ${rel>=0?'acima':'abaixo'} da média da liga (${t.mando_liga_vantagem} pts/jogo).</p>`;
 }
 
 /* força — gráfico com seleção */
@@ -330,12 +474,24 @@ function varList(){
     </div>`;}).join('');
 }
 
-/* confronto — Davidson com os parâmetros do modelo */
+/* confronto — mesmo modelo de 3 resultados usado no resto do site */
 const HFA=65, NU=0.7405;
 function confronto(rh,ra){
   const th=Math.pow(10,(rh+HFA)/400), ta=Math.pow(10,ra/400);
   const dr=NU*Math.sqrt(th*ta), s=th+ta+dr;
   return [th/s, dr/s, ta/s];
+}
+/* retrospecto historico dos dois clubes -- regra de amostra pequena */
+function h2hBlock(hk,ak){
+  const a=Math.min(+hk,+ak), b=Math.max(+hk,+ak);
+  const rec=DATA.h2h[a+'_'+b];
+  if(!rec) return `<p class="leg">Nunca se enfrentaram na Série A desde 2023.</p>`;
+  if(rec.jogos<4) return `<p class="leg">Poucos confrontos recentes entre os dois (${rec.jogos}
+    jogo${rec.jogos>1?'s':''} desde 2023) -- amostra pequena demais pra detalhar retrospecto.</p>`;
+  const hIsA=(+hk)===rec.a, vh=hIsA?rec.va:rec.vb, va_=hIsA?rec.vb:rec.va;
+  return `<p class="leg">Retrospecto desde 2023 (${rec.jogos} jogos): <b>${vh}</b>
+    vitória${vh!==1?'s':''} do ${T[hk].short_name}, <b>${rec.empates}</b> empate${rec.empates!==1?'s':''},
+    <b>${va_}</b> vitória${va_!==1?'s':''} do ${T[ak].short_name}.</p>`;
 }
 function vsOut(){
   const hk=document.getElementById('vsHome').value, ak=document.getElementById('vsAway').value;
@@ -343,11 +499,17 @@ function vsOut(){
   const [h,d,a]=confronto(T[hk].rating[N-1], T[ak].rating[N-1]);
   const seg=(w,col,txt)=>`<div style="width:${w*100}%;background:${col}">${w>0.12?txt:''}</div>`;
   return `<div class="odds">${seg(h,C.good,pc(h))}${seg(d,'#9AA3A6',pc(d))}${seg(a,'#3B6EA5',pc(a))}</div>
-    <div class="oleg"><span>${T[hk].short_name} em casa</span><span>empate</span><span>${T[ak].short_name}</span></div>`;
+    <div class="oleg"><span>${T[hk].short_name} em casa</span><span>empate</span><span>${T[ak].short_name}</span></div>
+    ${h2hBlock(hk,ak)}`;
 }
 
 document.getElementById('raceChart').innerHTML=raceChart();
+document.getElementById('ritmoChart').innerHTML=ritmoChart();
 document.getElementById('tabelaEl').innerHTML=tabelaChamp();
+document.getElementById('sorteList').innerHTML=sorteList();
+document.getElementById('sorteAnswer').innerHTML=sorteAnswer();
+document.getElementById('zebrasList').innerHTML=zebrasList();
+document.getElementById('zebrasAnswer').innerHTML=zebrasAnswer();
 document.getElementById('clubList').innerHTML=clubList('titulo');
 function paintForca(){
   document.getElementById('forcaChart').innerHTML=forcaChart();
@@ -374,7 +536,9 @@ sel.innerHTML=[...ORD].sort((a,b)=>T[a].real_position-T[b].real_position)
   .map(k=>`<option value="${k}">${T[k].short_name}</option>`).join('');
 function paintTeam(){const k=sel.value;
   document.getElementById('teamHead').innerHTML=teamHead(k);
-  document.getElementById('teamChart').innerHTML=teamChart(k);}
+  document.getElementById('teamChart').innerHTML=teamChart(k);
+  document.getElementById('teamSeq').innerHTML=teamSeq(k);
+  document.getElementById('teamMando').innerHTML=teamMando(k);}
 sel.value=ORD[0]; paintTeam(); sel.addEventListener('change',paintTeam);
 
 function goToTeam(k){

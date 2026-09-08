@@ -73,6 +73,52 @@ python src/validate_elo.py
 
 Resultado mais recente na seção "Limitações conhecidas" abaixo.
 
+## Métricas derivadas (`src/derived.py`)
+
+Camada extra em cima de `data/raw` e `data/processed`, sem fonte nova e
+sem dado novo. Reusa a mesma função de Davidson e os mesmos parâmetros
+calibrados (K, HFA, ν) de `config.py` -- nada aqui recalibra nada.
+
+- **`xpts_forca.parquet`** -- xPTS "de força": pontos esperados pela
+  probabilidade de resultado do Elo+Davidson (rating pré-jogo, sem
+  vazamento), não por xG. Mede sorte contra a força do adversário, não
+  contra a qualidade das chances criadas -- essa fonte não tem xG.
+- **`zebras.parquet`** -- por partida disputada, a probabilidade que o
+  modelo dava pro resultado que de fato ocorreu (rating pré-jogo),
+  ordenado do menos provável pro mais provável.
+- **`sequencias.parquet`** -- por clube, sequência atual e recorde de
+  invencibilidade, vitórias seguidas, jogos sem vencer e jogos sem
+  sofrer gol. **As sequências cruzam temporadas sem resetar** (a
+  "sequência atual" de um clube pode incluir jogos do ano anterior --
+  confirmado com o Botafogo, que tem `invencibilidade_recorde=18`
+  batendo com a sequência invicta real de 2023). Intencional, não bug
+  -- mas qualquer texto do site que mostrar essa métrica precisa deixar
+  isso explícito (ex: "invicto há 8 jogos, desde outubro de 2025"),
+  nunca só o número pelado.
+- **`mando_clube.parquet`** -- vantagem de mando específica de cada
+  clube (pontos por jogo em casa vs fora), comparada com a média da
+  liga inteira. Traz `temporadas` (nº de temporadas com dados do
+  clube) e `jogos_casa`/`jogos_fora` explícitos e separados -- clube
+  com só 1-2 temporadas de amostra (ex.: promovido recente) tem
+  `vantagem_relativa` bem mais ruidosa que um com 4, e isso precisa
+  estar visível sem recalcular nada.
+- **`h2h.parquet`** -- confronto direto entre cada par de clubes que já
+  se enfrentou em 2023-2026 (jogos, vitórias de cada lado, empates,
+  média de gols), uma linha por par (não duplicada A-B/B-A).
+- **`ritmo_campeao.parquet`** -- pontos acumulados do líder da tabela,
+  rodada a rodada, por temporada (líder pode trocar de time ao longo
+  da campanha -- a série guarda quem era o líder em cada rodada, não
+  só os pontos). Verificado: o líder na última rodada de cada
+  temporada fechada (2023-2025) bate exatamente com o campeão real em
+  `standings.parquet`.
+- **`cenarios.parquet`** -- por clube, na rodada mais recente: título,
+  G4 e Z4 confirmados ou descartados matematicamente (probabilidade
+  virou exatamente 0% ou 100% nas 10 mil simulações do Monte Carlo já
+  rodado por `elo.py` -- nenhuma simulação nova aqui). Arquivo
+  separado do `elo_probabilidades.parquet` de propósito: aquele é dono
+  do `elo.py`, e "confirmado/descartado" só faz sentido pra rodada
+  atual, não pro histórico inteiro que ele carrega.
+
 ## Limitações conhecidas
 
 ### Saldo de gols simulado tem variância menor que a real
@@ -147,6 +193,7 @@ src/ingest.py              football-data.org -> data/raw/*.parquet (incremental)
 src/probe_schema.py        dump do schema real
 src/calibrate_elo.py       grid search de K/HFA + Davidson nu (one-off)
 src/elo.py                 rating + Monte Carlo -> data/processed/*.parquet
+src/derived.py              metricas derivadas -> data/processed/*.parquet
 src/validate_elo.py        validacao do modelo (rode quando ele mudar)
 src/build_site.py          data/processed + data/raw -> docs/index.html
 fora-da-sumula-v3.html     template do site (design aprovado; so o payload muda)

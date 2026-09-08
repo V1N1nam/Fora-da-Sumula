@@ -33,7 +33,11 @@ python src/calibrate_elo.py
 # 4. Rating + Monte Carlo do restante da temporada corrente
 python src/elo.py
 
-# 5. Gera docs/index.html a partir do template fora-da-sumula-v3.html
+# 5. Metricas derivadas (xPTS, zebras, sequencias, mando, h2h, ritmo,
+#    cenarios). build_site.py le todas elas -- rode antes do site.
+python src/derived.py
+
+# 6. Gera docs/index.html a partir do template fora-da-sumula-v3.html
 python src/build_site.py
 ```
 
@@ -196,7 +200,10 @@ src/elo.py                 rating + Monte Carlo -> data/processed/*.parquet
 src/derived.py              metricas derivadas -> data/processed/*.parquet
 src/validate_elo.py        validacao do modelo (rode quando ele mudar)
 src/build_site.py          data/processed + data/raw -> docs/index.html
-fora-da-sumula-v3.html     template do site (design aprovado; so o payload muda)
+fora-da-sumula-v3.html     template do site: CSS, paginas e JS. O build so troca
+                           as duas linhas com sentinela (/*__DATA__*/ e /*__ELO__*/),
+                           e o arquivo guarda o payload da ultima geracao -- da pra
+                           abrir direto no navegador pra iterar design sem pipeline
 docs/index.html            gerado -- e o que o GitHub Pages serve (pasta fixa do Pages)
 .github/workflows/         agendamento, commit e build do site automáticos
 ```

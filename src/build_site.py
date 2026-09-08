@@ -1,16 +1,26 @@
 """Le data/processed + data/raw, monta o objeto DATA e gera docs/index.html
-a partir do template aprovado fora-da-sumula-v3.html.
+a partir do template fora-da-sumula-v3.html.
 
 Pasta e "docs" (nao "site") porque o GitHub Pages, no modo "Deploy from
 a branch", so aceita "/ (root)" ou "/docs" como pasta de publicacao --
 nao existe opcao de pasta arbitraria.
 
-So o payload muda: o bloco `const DATA = {...}`, o texto da manchete da
-home (gerado a partir dos dados -- ver build_headline) e a linha
-`const HFA=..., NU=...;` do simulador de confronto (puxada de config.py,
-pra nao divergir se o modelo for recalibrado). CSS, estrutura de paginas
-e todo o resto do JS ficam intocados -- o template e a fonte da verdade
-pro design.
+So o payload muda. O template tem exatamente DOIS pontos de injecao,
+marcados com sentinela no proprio arquivo (nada de casar regex contra
+HTML de layout, que quebrava a cada mudanca de design):
+
+    const DATA = {...};                        /*__DATA__*/
+    const HFA=..., NU=..., ELO_K=..., NSIM=...; /*__ELO__*/
+
+Tudo que antes era escrito em HTML pelo build -- manchete da home,
+numero da rodada -- agora entra como campo do payload e e renderizado
+pelo template. O texto continua sendo gerado aqui (ver build_headline):
+o gerador e dono do que a home *diz*, o template e dono de como ela
+*parece*.
+
+O template guarda uma copia do payload real da ultima geracao, entao
+abrir fora-da-sumula-v3.html direto no navegador continua funcionando
+pra iterar design sem rodar o pipeline.
 """
 
 from __future__ import annotations
@@ -23,12 +33,16 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from config import CURRENT_SEASON, ELO_DRAW_NU, ELO_HFA, PROCESSED, RAW, ROOT  # noqa: E402
+from config import (  # noqa: E402
+    CURRENT_SEASON, ELO_DRAW_NU, ELO_HFA, ELO_K, ELO_N_SIMULATIONS, PROCESSED, RAW, ROOT,
+)
 
 TEMPLATE = ROOT / "fora-da-sumula-v3.html"
 OUTPUT = ROOT / "docs" / "index.html"
 
 DECIDED_THRESHOLD = 0.85
+N_ZEBRAS = 24
+N_FORM = 5
 
 # A football-data.org devolve "Mineiro" e "Paranaense" como short_name
 # dos dois Atleticos -- nome tecnicamente correto (evita colisao entre
@@ -51,12 +65,74 @@ def build_short_names(standings: pd.DataFrame) -> dict[int, str]:
     return names
 
 
+def load_current_matches() -> pd.DataFrame:
+    """Partidas da temporada corrente, ordenadas por data real de jogo.
+
+    A ordem e por `utc_date`, nao por `matchday`: rodada adiada e
+    remarcada fora de ordem existe (ha jogos da rodada 21 ainda sem
+    placar depois da 26), e "ultimos 5 jogos" e uma leitura cronologica,
+    nao de numero de rodada.
+    """
+    m = pd.read_parquet(RAW / "matches.parquet")
+    m = m[m["season"] == CURRENT_SEASON].copy()
+    return m.sort_values("utc_date").reset_index(drop=True)
+
+
+def build_form_and_next(
+    matches: pd.DataFrame, short_names: dict[int, str], cutoff: str
+) -> tuple[dict[int, list[dict]], dict[int, dict | None]]:
+    """Ultimos N jogos disputados (mais antigo primeiro) e proximo jogo
+    agendado de cada clube. Fato bruto de data/raw -- nenhum modelo
+    envolvido, nenhuma regra de classificacao.
+
+    `cutoff` e a data do jogo mais recente ja disputado: partida sem
+    placar ANTES dela e adiada sem nova data, nao "o proximo jogo".
+    """
+    played = matches[matches["home_goals"].notna() & matches["away_goals"].notna()]
+    scheduled = matches[matches["home_goals"].isna() & (matches["utc_date"] >= cutoff)]
+
+    form: dict[int, list[dict]] = {}
+    for row in played.itertuples(index=False):
+        for tid, opp, gf, ga, mando in (
+            (int(row.home_team_id), int(row.away_team_id), int(row.home_goals), int(row.away_goals), "C"),
+            (int(row.away_team_id), int(row.home_team_id), int(row.away_goals), int(row.home_goals), "F"),
+        ):
+            form.setdefault(tid, []).append({
+                "r": "V" if gf > ga else "D" if gf < ga else "E",
+                "c": mando,
+                "o": short_names.get(opp, str(opp)),
+                "p": f"{gf}-{ga}",
+                "d": row.utc_date[:10],
+                "md": int(row.matchday),
+            })
+
+    nxt: dict[int, dict | None] = {}
+    for row in scheduled.itertuples(index=False):
+        for tid, opp, mando in (
+            (int(row.home_team_id), int(row.away_team_id), "C"),
+            (int(row.away_team_id), int(row.home_team_id), "F"),
+        ):
+            if tid not in nxt:
+                nxt[tid] = {
+                    "o": short_names.get(opp, str(opp)),
+                    "c": mando,
+                    "d": row.utc_date[:10],
+                    "md": int(row.matchday),
+                }
+
+    return {t: v[-N_FORM:] for t, v in form.items()}, nxt
+
+
 def build_data() -> dict:
     probs = pd.read_parquet(PROCESSED / "elo_probabilidades.parquet")
     ratings = pd.read_parquet(PROCESSED / "elo_ratings.parquet")
     standings = pd.read_parquet(RAW / "standings.parquet")
     standings_now = standings[standings["season"] == CURRENT_SEASON].set_index("team_id")
     short_names = build_short_names(standings)
+
+    matches = load_current_matches()
+    updated = matches[matches["home_goals"].notna()]["utc_date"].max()
+    form, next_match = build_form_and_next(matches, short_names, updated)
 
     xpts = pd.read_parquet(PROCESSED / "xpts_forca.parquet")
     xpts_now = xpts[xpts["season"] == CURRENT_SEASON].set_index("team_id")
@@ -67,7 +143,7 @@ def build_data() -> dict:
     rounds = sorted(int(x) for x in probs["round"].unique())
     current_round = rounds[-1]
 
-    # ordem canonica: rating atual, do maior pro menor (igual ao protótipo aprovado)
+    # ordem canonica: rating atual, do maior pro menor
     last_rating = ratings[ratings["round"] == current_round].set_index("team_id")["rating"]
     team_order = [int(t) for t in last_rating.sort_values(ascending=False).index]
 
@@ -139,23 +215,37 @@ def build_data() -> dict:
             ):
                 row[col] = bool(c[col])
 
+        row["form"] = form.get(tid, [])
+        row["next"] = next_match.get(tid)
+
         teams[str(tid)] = row
 
-    return {
+    zebras, zebras_universo = build_zebras(short_names)
+
+    data = {
+        "season": CURRENT_SEASON,
         "current_round": current_round,
+        "total_rounds": int(matches["matchday"].max()),
+        "updated": updated[:10],
         "rounds": rounds,
         "team_order": [str(t) for t in team_order],
         "teams": teams,
-        "zebras": build_zebras(short_names),
+        "zebras": zebras,
+        "zebras_universo": zebras_universo,
         "ritmo": build_ritmo(),
         "h2h": build_h2h(team_order, short_names),
     }
+    data["headline"] = build_headline(data)
+    return data
 
 
-def build_zebras(short_names: dict[int, str], n: int = 15) -> list[dict]:
-    """15 partidas mais improvaveis de 2023-2026, mais recente primeiro
-    em caso de empate na probabilidade."""
+def build_zebras(short_names: dict[int, str], n: int = N_ZEBRAS) -> tuple[list[dict], int]:
+    """As n partidas mais improvaveis de 2023-2026, mais recente primeiro
+    em caso de empate na probabilidade. Devolve tambem o tamanho do
+    universo -- o site diz "as n maiores de X partidas", e esse X nao
+    pode ser chutado no template."""
     z = pd.read_parquet(PROCESSED / "zebras.parquet")
+    universo = len(z)
     z = z.sort_values(["probabilidade", "date"], ascending=[True, False]).head(n)
     out = []
     for row in z.itertuples(index=False):
@@ -168,7 +258,7 @@ def build_zebras(short_names: dict[int, str], n: int = 15) -> list[dict]:
                 "probabilidade": round(float(row.probabilidade), 4),
             }
         )
-    return out
+    return out, universo
 
 
 def build_ritmo() -> dict[str, list[int]]:
@@ -205,20 +295,21 @@ def build_h2h(team_order: list[int], short_names: dict[int, str]) -> dict[str, d
     return out
 
 
-def build_headline(data: dict) -> tuple[str, str]:
-    """Gera o texto da manchete (quem lidera, se trocou de lider na ultima
-    rodada, se a disputa ja esta decidida) a partir dos dados -- em vez de
-    escrito a mao. Retorna (paragrafo .answer, bloco .duo)."""
+def build_headline(data: dict) -> dict:
+    """Texto da manchete da home (quem lidera, se trocou de lider na
+    ultima rodada, se a disputa ja esta decidida) gerado a partir dos
+    dados, nao escrito a mao. Vai como campo do payload -- quem desenha
+    o herói é o template."""
     teams = data["teams"]
     order = sorted(data["team_order"], key=lambda tid: teams[tid]["titulo"][-1], reverse=True)
     p1_id, p2_id = order[0], order[1]
     p1, p2 = teams[p1_id], teams[p2_id]
-    p1_now, p2_now = p1["titulo"][-1], p2["titulo"][-1]
+    p1_now = p1["titulo"][-1]
 
     prev_leader_id = max(data["team_order"], key=lambda tid: teams[tid]["titulo"][-2])
     lead_changed = prev_leader_id != p1_id
 
-    p1_pct, p2_pct = round(p1_now * 100), round(p2_now * 100)
+    p1_pct, p2_pct = round(p1_now * 100), round(p2["titulo"][-1] * 100)
     rest_pct = max(0, 100 - p1_pct - p2_pct)
 
     if p1_now > DECIDED_THRESHOLD:
@@ -230,65 +321,54 @@ def build_headline(data: dict) -> tuple[str, str]:
         prev_name = teams[prev_leader_id]["short_name"]
         answer = (
             f'Sobraram dois. O <b>{p1["short_name"]}</b> passou o {prev_name} na última '
-            f'rodada e assumiu a ponta. Os outros 18 clubes somam <b>{rest_pct}%</b>.'
+            f'rodada e assumiu a ponta. Os outros {len(order) - 2} clubes somam <b>{rest_pct}%</b>.'
         )
     else:
         answer = (
             f'Sobraram dois. O <b>{p1["short_name"]}</b> segue na frente do '
-            f'{p2["short_name"]}. Os outros 18 clubes somam <b>{rest_pct}%</b>.'
+            f'{p2["short_name"]}. Os outros {len(order) - 2} clubes somam <b>{rest_pct}%</b>.'
         )
 
-    duo = (
-        '<div class="duo">\n'
-        f'    <div><div class="n" style="color:var(--good)">{p1_pct}%</div>'
-        f'<div class="c">{p1["short_name"]}<br>{p1["real_points"]} pontos</div></div>\n'
-        f'    <div><div class="n">{p2_pct}%</div>'
-        f'<div class="c">{p2["short_name"]}<br>{p2["real_points"]} pontos</div></div>\n'
-        '  </div>\n  '
-    )
-    return f'<p class="answer">{answer}</p>\n  ', duo
+    return {"answer": answer, "p1": p1_id, "p2": p2_id}
 
 
 def fmt_num(v: float) -> str:
     return str(int(v)) if float(v).is_integer() else repr(float(v))
 
 
+def render(template: str, data: dict) -> str:
+    """Injeta payload e parametros do modelo nas duas sentinelas do
+    template. Falha alto se alguma sumir -- site com dado velho e pior
+    que build quebrado.
+
+    O `?` nas duas regex nao e decorativo: o template e editado no
+    Windows e basta um editor gravar CRLF pra sentinela deixar de casar,
+    com uma mensagem de erro que nao aponta pra causa."""
+    data_json = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
+    template, n = re.subn(
+        r"^const DATA = .*?; /\*__DATA__\*/\r?$",
+        lambda _: f"const DATA = {data_json}; /*__DATA__*/",
+        template, count=1, flags=re.M | re.S,
+    )
+    assert n == 1, "nao achei a sentinela /*__DATA__*/ no template"
+
+    elo_line = (
+        f"const HFA={fmt_num(ELO_HFA)}, NU={fmt_num(ELO_DRAW_NU)}, "
+        f"ELO_K={fmt_num(ELO_K)}, NSIM={ELO_N_SIMULATIONS}; /*__ELO__*/"
+    )
+    template, n = re.subn(
+        r"^const HFA=.*?; /\*__ELO__\*/\r?$", lambda _: elo_line, template, count=1, flags=re.M,
+    )
+    assert n == 1, "nao achei a sentinela /*__ELO__*/ no template"
+    return template
+
+
 def main() -> None:
     data = build_data()
-    template = TEMPLATE.read_text(encoding="utf-8", newline="")
-
-    # 1. payload
-    data_json = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
-    template, n = re.subn(r"const DATA = \{.*?\};\nconst C=", f"const DATA = {data_json};\nconst C=", template, flags=re.S)
-    assert n == 1, "nao achei o bloco 'const DATA = ...' no template"
-
-    # 2. manchete da home (gerada, nao escrita a mao)
-    answer_html, duo_html = build_headline(data)
-    template, n = re.subn(
-        r'<p class="answer">.*?(?=<div id="raceChart">)',
-        answer_html + duo_html,
-        template, count=1, flags=re.S,
-    )
-    assert n == 1, "nao achei o bloco de manchete (.answer + .duo) no template"
-
-    # 3. parametros do simulador de confronto, puxados de config.py
-    old_line = "const HFA=65, NU=0.7405;"
-    new_line = f"const HFA={fmt_num(ELO_HFA)}, NU={fmt_num(ELO_DRAW_NU)};"
-    assert old_line in template, "nao achei a linha 'const HFA=...' no template"
-    template = template.replace(old_line, new_line, 1)
-
-    # 4. numero da rodada no cabecalho -- ficava fixo no template
-    # (bug latente: nunca era substituido, entao o cabecalho ia
-    # congelar na rodada do momento em que o template foi escrito).
-    template, n = re.subn(
-        r'<span class="round">rodada \d+</span>',
-        f'<span class="round">rodada {data["current_round"]}</span>',
-        template, count=1,
-    )
-    assert n == 1, "nao achei o span.round no template"
+    html = render(TEMPLATE.read_text(encoding="utf-8", newline=""), data)
 
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
-    OUTPUT.write_text(template, encoding="utf-8", newline="\n")
+    OUTPUT.write_text(html, encoding="utf-8", newline="\n")
     print(f"{OUTPUT} escrito ({OUTPUT.stat().st_size / 1024:.0f} KB), rodada {data['current_round']}, "
           f"{len(data['teams'])} clubes")
 

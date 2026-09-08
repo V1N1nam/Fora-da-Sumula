@@ -341,12 +341,14 @@ def render(template: str, data: dict) -> str:
     template. Falha alto se alguma sumir -- site com dado velho e pior
     que build quebrado.
 
-    O `?` nas duas regex nao e decorativo: o template e editado no
-    Windows e basta um editor gravar CRLF pra sentinela deixar de casar,
-    com uma mensagem de erro que nao aponta pra causa."""
+    As regex nao precisam tolerar CRLF: main() ja le o template com
+    Path.read_text() sem argumento de newline, que usa universal
+    newlines por padrao e converte \r\n/\r pra \n na leitura inteira
+    -- nao so nessas duas linhas. A string que chega aqui nunca tem
+    \r, entao o `$` sozinho basta."""
     data_json = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
     template, n = re.subn(
-        r"^const DATA = .*?; /\*__DATA__\*/\r?$",
+        r"^const DATA = .*?; /\*__DATA__\*/$",
         lambda _: f"const DATA = {data_json}; /*__DATA__*/",
         template, count=1, flags=re.M | re.S,
     )
@@ -357,7 +359,7 @@ def render(template: str, data: dict) -> str:
         f"ELO_K={fmt_num(ELO_K)}, NSIM={ELO_N_SIMULATIONS}; /*__ELO__*/"
     )
     template, n = re.subn(
-        r"^const HFA=.*?; /\*__ELO__\*/\r?$", lambda _: elo_line, template, count=1, flags=re.M,
+        r"^const HFA=.*?; /\*__ELO__\*/$", lambda _: elo_line, template, count=1, flags=re.M,
     )
     assert n == 1, "nao achei a sentinela /*__ELO__*/ no template"
     return template
@@ -365,7 +367,16 @@ def render(template: str, data: dict) -> str:
 
 def main() -> None:
     data = build_data()
-    html = render(TEMPLATE.read_text(encoding="utf-8", newline=""), data)
+    # Sem argumento `newline`: Path.read_text() so ganhou esse parametro
+    # no Python 3.13 -- o workflow do Actions roda 3.12, e passar
+    # newline="" aqui derruba o build la com TypeError (mesmo passando
+    # limpo numa maquina com Python mais novo). O default de read_text()
+    # (universal newlines) ja converte \r\n/\r pra \n sozinho, entao a
+    # tolerancia a CRLF do template editado no Windows nao se perde --
+    # so para de depender de um argumento que nem toda versao suportada
+    # do Python tem. write_text() abaixo tem `newline` desde o Python
+    # 3.10 -- essa API nao precisa mudar.
+    html = render(TEMPLATE.read_text(encoding="utf-8"), data)
 
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT.write_text(html, encoding="utf-8", newline="\n")

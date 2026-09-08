@@ -73,6 +73,12 @@ def build_data() -> dict:
             row["real_position"] = int(s["position"])
             row["real_points"] = int(s["points"])
             row["real_played"] = int(s["played_games"])
+            row["real_won"] = int(s["won"])
+            row["real_draw"] = int(s["draw"])
+            row["real_lost"] = int(s["lost"])
+            row["real_gf"] = int(s["goals_for"])
+            row["real_ga"] = int(s["goals_against"])
+            row["real_gd"] = int(s["goal_difference"])
         teams[str(tid)] = row
 
     return {

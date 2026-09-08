@@ -37,6 +37,9 @@ jobs:
       - name: Elo + Monte Carlo
         run: python src/elo.py
 
+      - name: Metricas derivadas (xPTS, zebras, sequencias, mando, h2h, ritmo, cenarios)
+        run: python src/derived.py
+
       - name: Gerar docs/index.html
         run: python src/build_site.py
 

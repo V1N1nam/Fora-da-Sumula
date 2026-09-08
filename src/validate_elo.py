@@ -17,6 +17,16 @@ sem compressao. Saldo de gols simulado saiu com ~62% da dispersao real
 desempate por saldo em empates exatos de pontos e vitorias fica menos
 preciso. Ver backlog do README para a correcao futura (bootstrap
 ponderado por kernel na diferenca de Elo, nao implementada).
+
+IMPORTANTE -- consumidores manuais deste output, que NAO atualizam
+sozinhos quando ele muda (nenhum dos dois le este script, so o texto
+que alguem copiou daqui uma vez):
+  1. README.md, secao "Limitacoes conhecidas" (a tabela de desvio
+     simulado vs real).
+  2. fora-da-sumula-v3.html, pagina "Como funciona" -> passo 4 ->
+     objeto `const V = {...}` (busque por "NUMEROS FIXOS" no arquivo).
+Depois de rodar este script de novo (por causa de K/HFA/nu ou do
+bootstrap de placar terem mudado), atualize os dois a mao.
 """
 
 from __future__ import annotations

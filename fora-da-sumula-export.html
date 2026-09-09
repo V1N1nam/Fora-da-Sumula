@@ -48,26 +48,10 @@ textarea#caption{width:100%;font:inherit;font-size:13.5px;line-height:1.55;paddi
 .dlpreview{max-width:340px}
 .dlpreview img{width:100%;border-radius:6px;border:1px solid var(--line)}
 .note{background:var(--amber-soft);color:var(--amber);border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:18px}
-.gate{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg);z-index:10}
-.gateCard{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:28px;width:260px;
-  display:flex;flex-direction:column;gap:12px;box-shadow:var(--shadow-2,0 10px 34px -14px rgba(19,22,26,.28))}
-.gateLabel{font-size:14px;font-weight:700;color:var(--ink)}
-.gateCard input{font:inherit;font-size:14px;padding:9px 12px;border-radius:8px;border:1px solid var(--line-2);
-  background:var(--surface);color:var(--ink)}
-.gateErr{color:var(--red);font-size:12.5px}
 </style>
 </head>
 <body>
-<div class="gate" id="gate">
-  <form class="gateCard" id="gateForm">
-    <div class="gateLabel">Fora da Súmula — acesso restrito</div>
-    <input type="password" id="gatePass" placeholder="Senha" autocomplete="off">
-    <button class="btn" type="submit">Entrar</button>
-    <div class="gateErr" id="gateErr" hidden>Senha incorreta.</div>
-  </form>
-</div>
-
-<div class="wrap" id="app" hidden>
+<div class="wrap">
   <h1>Gerador de imagens — export para X</h1>
   <div class="sub">Ferramenta de uso interno. Não linkada no site público, não indexada. Formato fixo: 1200×675px (16:9), exportado em 2× (2400×1350px).</div>
 
@@ -106,15 +90,6 @@ textarea#caption{width:100%;font:inherit;font-size:13.5px;line-height:1.55;paddi
 </div>
 
 <script>
-/* Trava client-side, so pra afastar clique casual -- NAO e seguranca
-   real: o site inteiro e estatico (GitHub Pages), nao ha servidor pra
-   validar senha nenhuma, e qualquer um que abrir "ver codigo-fonte"
-   le essa constante em texto puro. Se algum dia isso precisar virar
-   controle de acesso de verdade, a solucao e outra (auth num backend,
-   link assinado, etc.), nao uma senha maior aqui. */
-const EXPORT_PASSWORD = 'Sumula123';
-const GATE_SESSION_KEY = 'fds-export-unlocked';
-
 const DATA = {"season": 2026, "current_round": 26, "total_rounds": 38, "updated": "2026-09-07", "zebras_rodada": [{"date": "2026-09-06", "round": 26, "mandante": "Corinthians", "visitante": "Chapecoense", "placar": "1-2", "probabilidade": 0.2156}, {"date": "2026-09-06", "round": 26, "mandante": "Botafogo", "visitante": "Palmeiras", "placar": "0-0", "probabilidade": 0.2689}, {"date": "2026-09-06", "round": 26, "mandante": "Internacional", "visitante": "Santos", "placar": "2-3", "probabilidade": 0.314}, {"date": "2026-09-06", "round": 26, "mandante": "Coritiba", "visitante": "Mirassol", "placar": "1-2", "probabilidade": 0.3334}, {"date": "2026-09-05", "round": 26, "mandante": "Bragantino", "visitante": "Bahia", "placar": "2-3", "probabilidade": 0.3479}, {"date": "2026-09-05", "round": 26, "mandante": "São Paulo", "visitante": "Atlético-MG", "placar": "2-0", "probabilidade": 0.3835}, {"date": "2026-09-07", "round": 26, "mandante": "Vitória", "visitante": "Grêmio", "placar": "1-0", "probabilidade": 0.4309}, {"date": "2026-09-06", "round": 26, "mandante": "Cruzeiro", "visitante": "Athletico-PR", "placar": "3-1", "probabilidade": 0.4817}, {"date": "2026-09-06", "round": 26, "mandante": "Clube do Remo", "visitante": "Flamengo", "placar": "0-1", "probabilidade": 0.5236}, {"date": "2026-09-06", "round": 26, "mandante": "Fluminense", "visitante": "Vasco da Gama", "placar": "1-0", "probabilidade": 0.5754}], "proxima_rodada": [{"round": 21, "data": "2026-07-29", "mandante": "São Paulo", "visitante": "Santos", "favorito": "visitante", "prob_zebra": 0.429}, {"round": 21, "data": "2026-07-29", "mandante": "Chapecoense", "visitante": "Vasco da Gama", "favorito": "visitante", "prob_zebra": 0.4047}, {"round": 21, "data": "2026-07-29", "mandante": "Atlético-MG", "visitante": "Bragantino", "favorito": "mandante", "prob_zebra": 0.2649}, {"round": 21, "data": "2026-09-16", "mandante": "Botafogo", "visitante": "Grêmio", "favorito": "mandante", "prob_zebra": 0.2279}], "ritmo": {"2023": [3, 6, 9, 12, 15, 15, 18, 21, 21, 24, 27, 30, 33, 36, 39, 40, 43, 44, 47, 48, 51, 51, 51, 51, 52, 55, 58, 59, 60, 60, 60, 60, 60, 62, 63, 66, 69, 70], "2024": [3, 6, 7, 9, 10, 13, 14, 17, 19, 21, 24, 24, 27, 30, 31, 33, 36, 39, 40, 41, 43, 43, 46, 48, 50, 53, 56, 57, 60, 61, 64, 67, 68, 69, 70, 73, 76, 79], "2025": [3, 4, 7, 10, 13, 14, 16, 19, 22, 22, 24, 27, 30, 30, 33, 36, 39, 40, 43, 46, 49, 50, 53, 54, 57, 58, 58, 61, 64, 64, 67, 68, 71, 71, 74, 75, 78, 79], "2026": [3, 6, 7, 10, 13, 16, 17, 19, 22, 25, 26, 29, 32, 33, 34, 35, 38, 41, 44, 44, 47, 48, 48, 51, 52, 54]}, "cenarios": [{"team": "Flamengo", "titulo_confirmado": false, "titulo_descartado": false, "g4_confirmado": false, "g4_descartado": false, "z4_confirmado": false, "z4_descartado": true}, {"team": "Palmeiras", "titulo_confirmado": false, "titulo_descartado": false, "g4_confirmado": false, "g4_descartado": false, "z4_confirmado": false, "z4_descartado": true}, {"team": "Fluminense", "titulo_confirmado": false, "titulo_descartado": false, "g4_confirmado": false, "g4_descartado": false, "z4_confirmado": false, "z4_descartado": true}, {"team": "Cruzeiro", "titulo_confirmado": false, "titulo_descartado": false, "g4_confirmado": false, "g4_descartado": false, "z4_confirmado": false, "z4_descartado": true}, {"team": "Bahia", "titulo_confirmado": false, "titulo_descartado": false, "g4_confirmado": false, "g4_descartado": false, "z4_confirmado": false, "z4_descartado": true}, {"team": "Botafogo", "titulo_confirmado": false, "titulo_descartado": true, "g4_confirmado": false, "g4_descartado": false, "z4_confirmado": false, "z4_descartado": false}, {"team": "Athletico-PR", "titulo_confirmado": false, "titulo_descartado": false, "g4_confirmado": false, "g4_descartado": false, "z4_confirmado": false, "z4_descartado": true}, {"team": "Atlético-MG", "titulo_confirmado": false, "titulo_descartado": true, "g4_confirmado": false, "g4_descartado": false, "z4_confirmado": false, "z4_descartado": false}, {"team": "Mirassol", "titulo_confirmado": false, "titulo_descartado": true, "g4_confirmado": false, "g4_descartado": false, "z4_confirmado": false, "z4_descartado": false}, {"team": "Santos", "titulo_confirmado": false, "titulo_descartado": true, "g4_confirmado": false, "g4_descartado": false, "z4_confirmado": false, "z4_descartado": false}, {"team": "São Paulo", "titulo_confirmado": false, "titulo_descartado": true, "g4_confirmado": false, "g4_descartado": false, "z4_confirmado": false, "z4_descartado": false}, {"team": "Vitória", "titulo_confirmado": false, "titulo_descartado": true, "g4_confirmado": false, "g4_descartado": false, "z4_confirmado": false, "z4_descartado": false}, {"team": "Bragantino", "titulo_confirmado": false, "titulo_descartado": true, "g4_confirmado": false, "g4_descartado": false, "z4_confirmado": false, "z4_descartado": false}, {"team": "Corinthians", "titulo_confirmado": false, "titulo_descartado": true, "g4_confirmado": false, "g4_descartado": false, "z4_confirmado": false, "z4_descartado": false}, {"team": "Grêmio", "titulo_confirmado": false, "titulo_descartado": true, "g4_confirmado": false, "g4_descartado": false, "z4_confirmado": false, "z4_descartado": false}, {"team": "Coritiba", "titulo_confirmado": false, "titulo_descartado": true, "g4_confirmado": false, "g4_descartado": false, "z4_confirmado": false, "z4_descartado": false}, {"team": "Internacional", "titulo_confirmado": false, "titulo_descartado": true, "g4_confirmado": false, "g4_descartado": true, "z4_confirmado": false, "z4_descartado": false}, {"team": "Vasco da Gama", "titulo_confirmado": false, "titulo_descartado": true, "g4_confirmado": false, "g4_descartado": true, "z4_confirmado": false, "z4_descartado": false}, {"team": "Clube do Remo", "titulo_confirmado": false, "titulo_descartado": true, "g4_confirmado": false, "g4_descartado": true, "z4_confirmado": false, "z4_descartado": false}, {"team": "Chapecoense", "titulo_confirmado": false, "titulo_descartado": true, "g4_confirmado": false, "g4_descartado": true, "z4_confirmado": false, "z4_descartado": false}]}; /*__DATA__*/
 
 /* paleta fixa (tema claro do site) — o card sempre exporta igual,
@@ -581,36 +556,8 @@ document.getElementById('btnRefresh').addEventListener('click', draw);
 document.getElementById('btnDown').addEventListener('click', download);
 document.getElementById('btnReroll').addEventListener('click', rerollCaption);
 
-/* trava de senha -- ve comentario de EXPORT_PASSWORD no topo do
-   arquivo. So libera o conteudo (populateJogoSelect + draw) depois
-   de acertar a senha; sessionStorage expira ao fechar a aba. */
-function unlockExport(){
-  document.getElementById('gate').hidden = true;
-  document.getElementById('app').hidden = false;
-  populateJogoSelect();
-  draw();
-}
-
-let jaDesbloqueado = false;
-try { jaDesbloqueado = sessionStorage.getItem(GATE_SESSION_KEY) === '1'; } catch (e) { /* storage bloqueado: pede senha de novo */ }
-
-if (jaDesbloqueado){
-  unlockExport();
-} else {
-  document.getElementById('gateForm').addEventListener('submit', e => {
-    e.preventDefault();
-    const pass = document.getElementById('gatePass').value;
-    if (pass === EXPORT_PASSWORD){
-      try { sessionStorage.setItem(GATE_SESSION_KEY, '1'); } catch (e) { /* segue sem persistir */ }
-      unlockExport();
-    } else {
-      document.getElementById('gateErr').hidden = false;
-      const input = document.getElementById('gatePass');
-      input.value = '';
-      input.focus();
-    }
-  });
-}
+populateJogoSelect();
+draw();
 </script>
 </body>
 </html>

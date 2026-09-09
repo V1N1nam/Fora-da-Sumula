@@ -317,8 +317,15 @@ def build_mudancas_semana(teams: dict, team_order: list[str]) -> dict:
             "atual_pct": round(teams[tid]["titulo"][-1] * 100, 1),
         }
 
-    titulo_alta = titulo_pico(max(titulo_deltas, key=lambda p: p[1])) if titulo_deltas else None
-    titulo_queda = titulo_pico(min(titulo_deltas, key=lambda p: p[1])) if titulo_deltas else None
+    maior_alta = max(titulo_deltas, key=lambda p: p[1]) if titulo_deltas else None
+    maior_queda = min(titulo_deltas, key=lambda p: p[1]) if titulo_deltas else None
+    # so reporta "maior alta"/"maior queda" se o extremo realmente for
+    # do sinal esperado -- com 20 clubes e quase certo que sempre haja
+    # ao menos um de cada lado, mas numa semana em que TODOS caissem
+    # (ou subissem) reportar o "menos pior" como se fosse alta real
+    # seria enganoso, nao so um problema de sinal no texto
+    titulo_alta = titulo_pico(maior_alta) if maior_alta and maior_alta[1] > 0 else None
+    titulo_queda = titulo_pico(maior_queda) if maior_queda and maior_queda[1] < 0 else None
 
     g4_entrou, g4_saiu = [], []
     for tid in team_order:

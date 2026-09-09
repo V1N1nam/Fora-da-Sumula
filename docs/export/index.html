@@ -39,6 +39,12 @@ select{font:inherit;font-size:14px;padding:9px 12px;border-radius:8px;border:1px
 .stage .cardbox{width:100%;aspect-ratio:1200/675;border-radius:6px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.15);background:#F1F2EF}
 .stage .cardbox svg{width:100%;height:100%;display:block}
 .meta{margin-top:10px;font-size:12.5px;color:var(--ink-3)}
+.captionBox{margin-top:12px}
+.captionBox .lbl{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.captionBox .lbl span{font-size:11.5px;font-weight:600;color:var(--ink-3);text-transform:uppercase;letter-spacing:.03em}
+.captionBox .lbl button{font:inherit;font-size:12px;font-weight:600;color:var(--accent);background:none;border:none;cursor:pointer;padding:2px 4px}
+textarea#caption{width:100%;font:inherit;font-size:13.5px;line-height:1.55;padding:10px 12px;border-radius:8px;
+  border:1px solid var(--line);background:var(--surface);color:var(--ink);resize:vertical}
 .dlpreview{max-width:340px}
 .dlpreview img{width:100%;border-radius:6px;border:1px solid var(--line)}
 .note{background:var(--amber-soft);color:var(--amber);border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:18px}
@@ -71,6 +77,10 @@ select{font:inherit;font-size:14px;padding:9px 12px;border-radius:8px;border:1px
     <div class="stage">
       <div class="cardbox" id="cardbox"></div>
       <div class="meta" id="cardMeta"></div>
+      <div class="captionBox">
+        <div class="lbl"><span>Legenda sugerida (copie e ajuste)</span><button type="button" id="btnReroll">sortear outra</button></div>
+        <textarea id="caption" rows="4" readonly aria-label="Legenda sugerida para a postagem"></textarea>
+      </div>
     </div>
     <div class="stage dlpreview" id="dlStage" hidden>
       <div class="meta" style="margin-top:0 0 8px">Arquivo gerado (clique com o botão direito para salvar):</div>
@@ -128,6 +138,164 @@ function tagFor(round){
   return {label, w: 26 + label.length * 7.6};
 }
 
+/* ============================================================
+   legendas — texto-molde local, sem LLM: array de frases por
+   condicao do dado + Math.random pra variar entre exports do
+   mesmo tipo. Vai como texto selecionavel abaixo do card, fora
+   do PNG (pra poder copiar e ajustar antes de postar).
+   ============================================================ */
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+
+const DISCLAIMERS = [
+  'Isso é probabilidade do modelo (Elo + 10 mil simulações), não é garantia de resultado.',
+  'Número de simulação, não fato consumado — o jogo ainda decide sozinho.',
+  'Modelo estatístico, não bola de cristal: trate como chance, não certeza.',
+  'Probabilidade calculada antes da bola rolar, não uma previsão fechada do placar.',
+];
+
+/* faixa de "quão zebra" pela probabilidade que o modelo dava pro
+   resultado (menor = mais improvavel) -- limiares pedidos (<10%
+   forte, 10-20% moderada) mais duas faixas pra cobrir o resto do
+   intervalo sem forcar "zebra" em resultado que na verdade era
+   bem provavel */
+function zebraTier(p){
+  if (p < 0.10) return 'forte';
+  if (p < 0.20) return 'moderada';
+  if (p < 0.35) return 'leve';
+  return 'chalk';
+}
+
+const CAP_PREVIA = {
+  forte: [
+    (z, f, pct) => `${z} entra como azarão claro contra o ${f}, mas o modelo ainda reserva ${pct} de chance pra zebra — pouco, só não é zero.`,
+    (z, f, pct) => `Favoritismo bem marcado do ${f} nesse confronto; o ${z} precisaria de uma atuação bem acima do normal pra confirmar os ${pct} de chance que sobram.`,
+    (z, f, pct) => `Pelo modelo, o ${f} deveria vencer com folga — só ${pct} de chance pro ${z} sair com o resultado.`,
+  ],
+  moderada: [
+    (z, f, pct) => `${f} é favorito, mas o ${z} chega com ${pct} de chance real de zebra — não é o cenário mais provável, mas está longe de improvável.`,
+    (z, f, pct) => `Jogo com favorito definido no papel (${f}), só que o ${z} carrega ${pct} de chance de virar a história.`,
+    (z, f, pct) => `${pct} de chance pro ${z} surpreender o ${f} — o suficiente pra não descartar a zebra de cara.`,
+  ],
+  leve: [
+    (z, f, pct) => `Diferença pequena entre os dois: o modelo dá ${pct} pro ${z} surpreender o ${f} — quase um jogo de seis e meia dúzia.`,
+    (z, f, pct) => `${f} sai na frente no papel, mas com ${pct} de chance pro ${z}, esse confronto está longe de decidido.`,
+  ],
+  chalk: [
+    (z, f, pct) => `Rodada com pouco susto previsto: mesmo o jogo mais aberto tem o ${f} com boa margem sobre o ${z}.`,
+    (z, f, pct) => `Sem grande ameaça de zebra nessa leva de jogos — o ${f} parte na frente com folga sobre o ${z}.`,
+  ],
+};
+
+function captionPrevia(top, zebra, fav){
+  const tier = zebraTier(top.prob_zebra);
+  const linha = pick(CAP_PREVIA[tier])(esc(zebra), esc(fav), pct1(top.prob_zebra));
+  return `${linha} ${pick(DISCLAIMERS)}`;
+}
+
+const CAP_ZEBRA = {
+  forte: [
+    (m, v, ph, pct) => `Resultado raro: o modelo dava só ${pct} de chance pro ${ph} entre ${m} e ${v} — uma das poucas vezes que a conta não fechou.`,
+    (m, v, ph, pct) => `${m} ${ph} ${v} saiu com apenas ${pct} de chance prevista — zebra de verdade nessa rodada.`,
+    (m, v, ph, pct) => `Ninguém esperava muito por isso: só ${pct} de chance pro que aconteceu entre ${m} e ${v}.`,
+  ],
+  moderada: [
+    (m, v, ph, pct) => `${pct} de chance é pouco: o duelo entre ${m} e ${v} terminou fora do que o modelo apontava como mais provável.`,
+    (m, v, ph, pct) => `Surpresa moderada — o modelo dava ${pct} pro resultado que saiu entre ${m} e ${v}.`,
+  ],
+  leve: [
+    (m, v, ph, pct) => `Surpresa leve: ${pct} de chance pro placar que saiu entre ${m} e ${v}, mas nada fora do razoável.`,
+    (m, v, ph, pct) => `O modelo não descartava esse resultado (${pct} de chance) — zebra pequena entre ${m} e ${v}.`,
+  ],
+  chalk: [
+    (m, v, ph, pct) => `Resultado dentro do esperado entre ${m} e ${v} (${pct} de chance) — o mais "zebra" que essa rodada deu.`,
+    (m, v, ph, pct) => `Rodada sem grandes sustos: mesmo o topo do ranking de zebras, ${m} x ${v}, tinha ${pct} de chance prevista.`,
+  ],
+};
+
+function captionZebra(g){
+  const tier = zebraTier(g.probabilidade);
+  const linha = pick(CAP_ZEBRA[tier])(esc(g.mandante), esc(g.visitante), esc(g.placar), pct1(g.probabilidade));
+  return `${linha} ${pick(DISCLAIMERS)}`;
+}
+
+const CAP_RANKING = {
+  forte: [
+    (n, m, v, ph, pct) => `A rodada teve ${n} ${n === 1 ? 'resultado fora do esperado' : 'resultados fora do esperado'} — o mais chocante foi ${m} ${ph} ${v}, com só ${pct} de chance prevista.`,
+    (n, m, v, ph, pct) => n === 1
+      ? `Só ${n} zebra na rodada: ${m} ${ph} ${v} (${pct} de chance) — rodada de poucas certezas.`
+      : `${n} zebras na rodada, liderada por ${m} ${ph} ${v} (${pct} de chance) — rodada de poucas certezas.`,
+  ],
+  moderada: [
+    (n, m, v, ph, pct) => `${n} ${n === 1 ? 'resultado saiu' : 'resultados saíram'} fora da curva nessa rodada; o de maior impacto foi ${m} ${ph} ${v} (${pct}).`,
+    (n, m, v, ph, pct) => `Rodada com algumas surpresas — a maior foi ${m} ${ph} ${v}, prevista em apenas ${pct}.`,
+  ],
+  leve: [
+    (n, m, v, ph, pct) => `Rodada sem zebra pesada: o resultado menos esperado foi ${m} ${ph} ${v}, ainda assim com ${pct} de chance.`,
+  ],
+  chalk: [
+    (n, m, v, ph, pct) => `Rodada mais previsível que o normal — até o topo do ranking de zebras, ${m} ${ph} ${v}, tinha ${pct} de chance.`,
+  ],
+};
+
+function captionRanking(list){
+  const top = list[0];
+  if (!top) return pick(DISCLAIMERS);
+  const tier = zebraTier(top.probabilidade);
+  const linha = pick(CAP_RANKING[tier])(list.length, esc(top.mandante), esc(top.placar), esc(top.visitante), pct1(top.probabilidade));
+  return `${linha} ${pick(DISCLAIMERS)}`;
+}
+
+/* delta_pp aqui deveria ser sempre >=0 (e o maior delta entre os
+   clubes -- so vira negativo se TODOS caírem na semana, edge case
+   quase impossivel com 20 clubes, mas o sinal usa Math.abs em vez de
+   assumir positivo pra nunca imprimir "+-10,8" se isso acontecer) */
+const CAP_TITULO_ALTA = {
+  grande: [
+    t => `${t.team} disparou na semana: +${dec1(Math.abs(t.delta_pp))} p.p. de chance de título, agora em ${dec1(t.atual_pct)}%.`,
+    t => `Semana de arrancada pro ${t.team} — subiu ${dec1(Math.abs(t.delta_pp))} p.p. na probabilidade de título e chegou a ${dec1(t.atual_pct)}%.`,
+  ],
+  leve: [
+    t => `${t.team} teve a maior alta de título da semana, subindo ${dec1(Math.abs(t.delta_pp))} p.p. (agora ${dec1(t.atual_pct)}%).`,
+    t => `Leve avanço do ${t.team} nas contas do título: +${dec1(Math.abs(t.delta_pp))} p.p. na semana.`,
+  ],
+};
+const CAP_TITULO_QUEDA = {
+  grande: [
+    t => `Já o ${t.team} sentiu o baque: caiu ${Math.abs(t.delta_pp).toFixed(1).replace('.', ',')} p.p. na semana e chegou a ${dec1(t.atual_pct)}%.`,
+    t => `Semana ruim pro ${t.team} nas contas do título — queda de ${Math.abs(t.delta_pp).toFixed(1).replace('.', ',')} p.p., agora em ${dec1(t.atual_pct)}%.`,
+  ],
+  leve: [
+    t => `O ${t.team} teve a maior queda de título da semana, recuando ${Math.abs(t.delta_pp).toFixed(1).replace('.', ',')} p.p.`,
+    t => `Leve recuo do ${t.team}: -${Math.abs(t.delta_pp).toFixed(1).replace('.', ',')} p.p. na chance de título nesta semana.`,
+  ],
+};
+
+function captionStatus(m){
+  const partes = [];
+  if (m.titulo_alta){
+    const mag = Math.abs(m.titulo_alta.delta_pp) >= 10 ? 'grande' : 'leve';
+    partes.push(pick(CAP_TITULO_ALTA[mag])(m.titulo_alta));
+  }
+  if (m.titulo_queda){
+    const mag = Math.abs(m.titulo_queda.delta_pp) >= 10 ? 'grande' : 'leve';
+    partes.push(pick(CAP_TITULO_QUEDA[mag])(m.titulo_queda));
+  }
+  const movers = m.g4_entrou.length + m.g4_saiu.length;
+  if (movers > 0){
+    partes.push(pick([
+      () => `Do lado do G4, ${movers} clube${movers > 1 ? 's' : ''} mudou de faixa de probabilidade acima de ${G4_THRESH} p.p. nesta semana.`,
+      () => `A briga pelo G4 também mexeu: ${movers} variação${movers > 1 ? 'ões' : ''} relevante${movers > 1 ? 's' : ''} (acima de ${G4_THRESH} p.p.) na semana.`,
+    ])());
+  } else if (m.novidades.length > 0){
+    partes.push(pick([
+      () => `Nenhum movimento grande no G4, mas ${m.novidades.length} cenário${m.novidades.length > 1 ? 's' : ''} virou de vez nesta rodada.`,
+      () => `A tabela ficou mais definida: ${m.novidades.length} confirmação${m.novidades.length > 1 ? 'ões' : ''}/descarte${m.novidades.length > 1 ? 's' : ''} nesta rodada.`,
+    ])());
+  }
+  partes.push(pick(DISCLAIMERS));
+  return partes.join(' ');
+}
+
 /* -------------------- 1. prévia da rodada -------------------- */
 function renderPrevia(){
   const fixtures = DATA.proxima_rodada;
@@ -155,7 +323,7 @@ function renderPrevia(){
     <text x="80" y="${boxY+78}" font-size="26" font-weight="700" fill="${C.ink}">${esc(zebra)} pode surpreender o ${esc(fav)}</text>
     <text x="80" y="${boxY+104}" font-size="15" fill="${C.ink2}">${pct1(top.prob_zebra)} de chance de vitória do azarão, segundo o modelo de força (Elo)</text>
   `;
-  return {svg: shell(inner, tagFor(round)), name: `previa-rodada-${round}.png`};
+  return {svg: shell(inner, tagFor(round)), name: `previa-rodada-${round}.png`, caption: captionPrevia(top, zebra, fav)};
 }
 
 /* -------------------- 2. zebra de um jogo -------------------- */
@@ -172,7 +340,7 @@ function renderZebra(idx){
     <text x="440" y="448" font-size="15.5" fill="${C.ink2}">saiu em campo — segundo o modelo</text>
     <text x="440" y="474" font-size="15.5" fill="${C.ink2}">de força por Elo antes da bola rolar.</text>
   `;
-  return {svg: shell(inner, tagFor(g.round)), name: `zebra-${g.mandante}-${g.visitante}.png`.toLowerCase().replace(/\s+/g,'-')};
+  return {svg: shell(inner, tagFor(g.round)), name: `zebra-${g.mandante}-${g.visitante}.png`.toLowerCase().replace(/\s+/g,'-'), caption: captionZebra(g)};
 }
 
 /* -------------------- 3. ranking de zebras da rodada -------------------- */
@@ -194,7 +362,7 @@ function renderRanking(){
     <text x="56" y="118" font-size="15" font-weight="700" fill="${C.red}" letter-spacing="1.5">TOP ZEBRAS DA RODADA</text>
     ${rows}
   `;
-  return {svg: shell(inner, tagFor(round)), name: `ranking-zebras-rodada-${round}.png`};
+  return {svg: shell(inner, tagFor(round)), name: `ranking-zebras-rodada-${round}.png`, caption: captionRanking(list)};
 }
 
 /* -------------------- 4. status semanal -------------------- */
@@ -326,7 +494,7 @@ function renderStatus(){
   }
 
   const inner = `${top}${left}${chart}${compareTxt}`;
-  return {svg: shell(inner, tagFor(DATA.current_round)), name: `status-semanal-rodada-${DATA.current_round}.png`};
+  return {svg: shell(inner, tagFor(DATA.current_round)), name: `status-semanal-rodada-${DATA.current_round}.png`, caption: captionStatus(m)};
 }
 
 const RENDERERS = {previa: renderPrevia, zebra: () => renderZebra(+document.getElementById('jogo').value), ranking: renderRanking, status: renderStatus};
@@ -343,7 +511,16 @@ function draw(){
   currentResult = RENDERERS[tipo]();
   document.getElementById('cardbox').innerHTML = currentResult.svg;
   document.getElementById('cardMeta').textContent = `1200×675px · ${currentResult.name}`;
+  document.getElementById('caption').value = currentResult.caption || '';
   document.getElementById('dlStage').hidden = true;
+}
+
+function rerollCaption(){
+  if (!currentResult) return;
+  const tipo = document.getElementById('tipo').value;
+  const again = RENDERERS[tipo]();
+  currentResult.caption = again.caption;
+  document.getElementById('caption').value = again.caption || '';
 }
 
 async function download(){
@@ -377,6 +554,7 @@ document.getElementById('tipo').addEventListener('change', draw);
 document.getElementById('jogo').addEventListener('change', draw);
 document.getElementById('btnRefresh').addEventListener('click', draw);
 document.getElementById('btnDown').addEventListener('click', download);
+document.getElementById('btnReroll').addEventListener('click', rerollCaption);
 
 populateJogoSelect();
 draw();

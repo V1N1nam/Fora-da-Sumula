@@ -485,18 +485,31 @@ def zebra_provavel_proxima_rodada(matches: pd.DataFrame, ratings: pd.DataFrame) 
     que o jogo ainda nao aconteceu -- nao existe rating pre-jogo aqui).
     Ordenado do jogo com maior chance de zebra pro menor. 'ratings' e o
     elo_ratings.parquet gerado por elo.py (rating por team_id a cada
-    rodada); usa a rodada mais recente disponivel nele."""
-    current_round = int(ratings["round"].max())
-    latest = ratings[ratings["round"] == current_round].set_index("team_id")["rating"]
+    rodada); usa a rodada mais recente disponivel nele.
 
-    scheduled = matches[matches["home_goals"].isna()]
+    'Proxima rodada' e definida por DATA, nao pelo menor numero de
+    rodada ainda incompleta -- mesmo cuidado de build_form_and_next()
+    em build_site.py: partida sem placar com data ANTERIOR ao ultimo
+    jogo ja disputado esta adiada sem nova data, nao e "o proximo jogo"
+    (confirmado com dado real: 3 jogos da rodada 21 carregam a data
+    original de 29/07 sem nunca ter sido atualizada, enquanto o 4o jogo
+    da mesma rodada [Botafogo x Gremio] foi remarcado pra 16/09 -- veio
+    DEPOIS de rodadas seguintes por causa do adiamento). Sem esse
+    corte, o card de previa mistura uma data de 2 meses atras com uma
+    futura na mesma lista."""
+    current = matches[matches["season"] == CURRENT_SEASON]
+    cutoff = current.loc[current["home_goals"].notna(), "utc_date"].max()
+    scheduled = current[current["home_goals"].isna() & (current["utc_date"] >= cutoff)]
     if scheduled.empty:
         return pd.DataFrame(columns=[
             "season", "round", "mandante_id", "mandante", "visitante_id", "visitante",
             "data", "favorito", "prob_zebra",
         ])
-    next_round = int(scheduled["matchday"].min())
+    next_round = int(scheduled.loc[scheduled["utc_date"].idxmin(), "matchday"])
     fixtures = scheduled[scheduled["matchday"] == next_round]
+
+    current_round = int(ratings["round"].max())
+    latest = ratings[ratings["round"] == current_round].set_index("team_id")["rating"]
 
     rows = []
     for row in fixtures.itertuples(index=False):

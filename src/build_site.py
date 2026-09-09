@@ -231,6 +231,8 @@ def build_data() -> dict:
     zebras, zebras_universo = build_zebras(short_names)
     zebras_rodada = build_zebras_rodada(short_names)
     proxima_rodada = build_proxima_rodada(short_names)
+    prev_round = rounds[-2] if len(rounds) > 1 else None
+    mudancas_semana = build_mudancas_semana(teams, [str(t) for t in team_order])
 
     data = {
         "season": CURRENT_SEASON,
@@ -246,6 +248,8 @@ def build_data() -> dict:
         "h2h": build_h2h(team_order, short_names),
         "zebras_rodada": zebras_rodada,
         "proxima_rodada": proxima_rodada,
+        "prev_round": prev_round,
+        "mudancas_semana": mudancas_semana,
     }
     data["headline"] = build_headline(data)
     return data
@@ -271,6 +275,85 @@ def build_zebras(short_names: dict[int, str], n: int = N_ZEBRAS) -> tuple[list[d
             }
         )
     return out, universo
+
+
+G4_MOVER_THRESHOLD_PP = 15.0
+
+NOVIDADE_LABELS = (
+    ("titulo", "titulo_confirmado", "título confirmado"),
+    ("titulo", "titulo_descartado", "título descartado"),
+    ("g4", "g4_confirmado", "G4 confirmado"),
+    ("g4", "g4_descartado", "G4 descartado"),
+    ("z4", "z4_confirmado", "rebaixamento confirmado"),
+    ("z4", "z4_descartado", "fora do Z4"),
+)
+
+
+def build_mudancas_semana(teams: dict, team_order: list[str]) -> dict:
+    """'O que mudou desde a rodada anterior', pro card de status semanal
+    do export. Nao le parquet novo: teams[tid]['titulo'/'g4'/'z4'] JA E
+    o historico rodada a rodada de elo_probabilidades.parquet (monta em
+    build_data() logo acima) -- aqui e so pegar o penultimo elemento de
+    cada lista pra comparar com o ultimo. 'Confirmado'/'descartado' usa
+    o mesmo limiar >=1.0 / <=0.0 de derived.cenarios() (o Monte Carlo so
+    bate 0% ou 100% quando toda simulacao concorda), aplicado aos dois
+    pontos no tempo em vez de reler cenarios.parquet (que so guarda a
+    rodada mais recente, nao teria o dado da rodada anterior)."""
+
+    def delta_pp(tid: str, metrica: str) -> float | None:
+        arr = teams[tid][metrica]
+        if len(arr) < 2:
+            return None
+        return (arr[-1] - arr[-2]) * 100
+
+    titulo_deltas = [(tid, delta_pp(tid, "titulo")) for tid in team_order]
+    titulo_deltas = [(tid, d) for tid, d in titulo_deltas if d is not None]
+
+    def titulo_pico(par):
+        tid, d = par
+        return {
+            "team": teams[tid]["short_name"],
+            "delta_pp": round(d, 1),
+            "atual_pct": round(teams[tid]["titulo"][-1] * 100, 1),
+        }
+
+    titulo_alta = titulo_pico(max(titulo_deltas, key=lambda p: p[1])) if titulo_deltas else None
+    titulo_queda = titulo_pico(min(titulo_deltas, key=lambda p: p[1])) if titulo_deltas else None
+
+    g4_entrou, g4_saiu = [], []
+    for tid in team_order:
+        d = delta_pp(tid, "g4")
+        if d is None:
+            continue
+        if d >= G4_MOVER_THRESHOLD_PP:
+            g4_entrou.append({"team": teams[tid]["short_name"], "delta_pp": round(d, 1)})
+        elif d <= -G4_MOVER_THRESHOLD_PP:
+            g4_saiu.append({"team": teams[tid]["short_name"], "delta_pp": round(d, 1)})
+    g4_entrou.sort(key=lambda x: -x["delta_pp"])
+    g4_saiu.sort(key=lambda x: x["delta_pp"])
+
+    novidades = []
+    for tid in team_order:
+        arr_cache = {}
+        for metrica, _flag, _label in NOVIDADE_LABELS:
+            arr_cache.setdefault(metrica, teams[tid][metrica])
+        for metrica, flag, label in NOVIDADE_LABELS:
+            arr = arr_cache[metrica]
+            if len(arr) < 2:
+                continue
+            is_confirmado = flag.endswith("confirmado")
+            cur = arr[-1] >= 1.0 if is_confirmado else arr[-1] <= 0.0
+            prev = arr[-2] >= 1.0 if is_confirmado else arr[-2] <= 0.0
+            if cur and not prev:
+                novidades.append({"team": teams[tid]["short_name"], "tipo": label})
+
+    return {
+        "titulo_alta": titulo_alta,
+        "titulo_queda": titulo_queda,
+        "g4_entrou": g4_entrou,
+        "g4_saiu": g4_saiu,
+        "novidades": novidades,
+    }
 
 
 def build_zebras_rodada(short_names: dict[int, str]) -> list[dict]:
@@ -416,6 +499,8 @@ def build_export_data(data: dict) -> dict:
         "proxima_rodada": data["proxima_rodada"],
         "ritmo": data["ritmo"],
         "cenarios": cenarios,
+        "prev_round": data["prev_round"],
+        "mudancas_semana": data["mudancas_semana"],
     }
 
 

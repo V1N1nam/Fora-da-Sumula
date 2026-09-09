@@ -94,6 +94,7 @@ const C = {
   amber:'#8F6410', amberSoft:'#F4EDDB',
 };
 const W = 1200, H = 675;
+const G4_THRESH = 15;
 const FSANS = 'Archivo, system-ui, sans-serif';
 const FSERIF = '"Instrument Serif", Georgia, serif';
 
@@ -197,26 +198,101 @@ function renderRanking(){
 }
 
 /* -------------------- 4. status semanal -------------------- */
+const dec1 = v => v.toFixed(1).replace('.', ',');
+
+/* barra divergente: mesmo padrao visual da pagina Sorte (eixo no
+   centro, barra pra direita em verde/subida, pra esquerda em
+   vermelho/queda, comprimento proporcional ao maior |valor| do par) */
+function divergBar(cx, y, halfW, valuePp, maxAbs, colorPos, colorNeg){
+  const up = valuePp >= 0;
+  const len = maxAbs > 0 ? Math.min(halfW, Math.abs(valuePp) / maxAbs * halfW) : 0;
+  const color = up ? colorPos : colorNeg;
+  const x0 = up ? cx : cx - len;
+  return `<line x1="${cx}" y1="${y-9}" x2="${cx}" y2="${y+9}" stroke="${C.ink4}" stroke-width="1" opacity=".55"/>
+    <rect x="${x0.toFixed(1)}" y="${y-5}" width="${len.toFixed(1)}" height="10" rx="3" fill="${color}"/>`;
+}
+
+function mudancaRow(y, label, item, maxAbs){
+  if (!item) return `<text x="56" y="${y+16}" font-size="14" fill="${C.ink4}">${esc(label)}: sem dado da rodada anterior</text>`;
+  const up = item.delta_pp >= 0;
+  const color = up ? C.accent : C.red;
+  let s = `<text x="56" y="${y}" font-size="12" font-weight="700" fill="${C.ink3}" letter-spacing="1">${esc(label)}</text>`;
+  s += `<text x="56" y="${y+26}" font-size="22" font-weight="700" fill="${C.ink}">${esc(item.team)}</text>`;
+  s += `<text x="${W-56}" y="${y}" text-anchor="end" font-size="12" fill="${C.ink3}">agora em ${dec1(item.atual_pct)}%</text>`;
+  s += `<text x="${W-56}" y="${y+26}" text-anchor="end" font-size="22" font-weight="700" fill="${color}">${up?'+':''}${dec1(item.delta_pp)} p.p.</text>`;
+  s += divergBar(600, y+42, 510, item.delta_pp, maxAbs, C.accent, C.red);
+  return s;
+}
+
+/* chips compactos ("mudou de cenario nesta rodada"), com quebra de
+   linha manual (largura de texto estimada por caractere -- svg estatico
+   nao tem medida de texto disponivel antes de renderizar) */
+function chipRow(items, x0, y0, maxWidth, lineH, maxLines){
+  let x = x0, y = y0, line = 0, shown = 0, svg = '';
+  const charW = 6.4;
+  for (const it of items){
+    const w = it.text.length * charW + 34;
+    if (x + w > x0 + maxWidth){
+      line++; x = x0; y += lineH;
+      if (line >= maxLines) break;
+    }
+    svg += `<rect x="${x.toFixed(1)}" y="${y}" width="${w.toFixed(1)}" height="24" rx="12" fill="${C.surface}" stroke="${C.line}"/>
+      <circle cx="${(x+14).toFixed(1)}" cy="${y+12}" r="4" fill="${it.color}"/>
+      <text x="${(x+24).toFixed(1)}" y="${y+16}" font-size="12" font-weight="600" fill="${C.ink2}">${esc(it.text)}</text>`;
+    x += w + 12;
+    shown++;
+  }
+  const rest = items.length - shown;
+  if (rest > 0){
+    const w = `+${rest} mudança${rest>1?'s':''}`.length * charW + 34;
+    if (x + w > x0 + maxWidth){ y += lineH; x = x0; }
+    svg += `<rect x="${x.toFixed(1)}" y="${y}" width="${w.toFixed(1)}" height="24" rx="12" fill="${C.surface2}"/>
+      <text x="${(x+w/2).toFixed(1)}" y="${y+16}" text-anchor="middle" font-size="12" font-weight="700" fill="${C.ink3}">+${rest} mudança${rest>1?'s':''}</text>`;
+  }
+  return svg;
+}
+
 function renderStatus(){
+  const m = DATA.mudancas_semana;
+  const maxAbs = Math.max(Math.abs(m.titulo_alta?.delta_pp || 0), Math.abs(m.titulo_queda?.delta_pp || 0), 1);
+
+  const tipoColor = {
+    'título confirmado': C.accent, 'título descartado': C.ink3,
+    'G4 confirmado': C.accent, 'G4 descartado': C.ink3,
+    'rebaixamento confirmado': C.red, 'fora do Z4': C.accent,
+  };
+  const chips = [];
+  m.g4_entrou.forEach(x => chips.push({text:`${x.team} entrou no G4 (+${dec1(x.delta_pp)}pp)`, color:C.accent}));
+  m.g4_saiu.forEach(x => chips.push({text:`${x.team} saiu do G4 (${dec1(x.delta_pp)}pp)`, color:C.red}));
+  m.novidades.forEach(n => chips.push({text:`${n.team}: ${n.tipo}`, color: tipoColor[n.tipo] || C.ink3}));
+  if (!chips.length) chips.push({text:'Nenhum cenário virou nesta rodada', color:C.ink4});
+
+  const prevLabel = DATA.prev_round != null ? `RODADA ${DATA.prev_round} → ${DATA.current_round}` : `RODADA ${DATA.current_round}`;
+  let top = `<text x="56" y="118" font-size="15" font-weight="700" fill="${C.blue}" letter-spacing="1.5">O QUE MUDOU — ${prevLabel}</text>`;
+  top += mudancaRow(142, 'MAIOR ALTA DE TÍTULO NA SEMANA', m.titulo_alta, maxAbs);
+  top += mudancaRow(204, 'MAIOR QUEDA DE TÍTULO NA SEMANA', m.titulo_queda, maxAbs);
+  top += `<text x="56" y="270" font-size="12" font-weight="700" fill="${C.ink3}" letter-spacing="1">MUDANÇAS DE CENÁRIO NESTA RODADA (G4 ±${G4_THRESH}p.p. ou confirmação/descarte)</text>`;
+  top += chipRow(chips, 56, 282, W - 112, 32, 2);
+
+  /* -------- conteudo existente: cenarios acumulados + ritmo -------- */
   const cen = DATA.cenarios;
-  const cat = (a,b) => cen.filter(c => c[a] || c[b]);
   const groups = [
-    {label:'Título confirmado', key:'titulo_confirmado', color:C.accent, soft:C.accentSoft},
-    {label:'Título descartado', key:'titulo_descartado', color:C.ink3, soft:C.surface2},
-    {label:'G4 descartado', key:'g4_descartado', color:C.ink3, soft:C.surface2},
-    {label:'Z4 confirmado (rebaixado)', key:'z4_confirmado', color:C.red, soft:C.redSoft},
-    {label:'Fora do Z4 (salvo)', key:'z4_descartado', color:C.accent, soft:C.accentSoft},
+    {label:'Título confirmado', key:'titulo_confirmado', color:C.accent},
+    {label:'Título descartado', key:'titulo_descartado', color:C.ink3},
+    {label:'G4 descartado', key:'g4_descartado', color:C.ink3},
+    {label:'Z4 confirmado (rebaixado)', key:'z4_confirmado', color:C.red},
+    {label:'Fora do Z4 (salvo)', key:'z4_descartado', color:C.accent},
   ].map(g => ({...g, teams: cen.filter(c => c[g.key]).map(c => c.team)}))
    .filter(g => g.teams.length);
 
-  let y = 150;
-  let left = `<text x="56" y="118" font-size="15" font-weight="700" fill="${C.blue}" letter-spacing="1.5">CENÁRIOS DA RODADA ${DATA.current_round}</text>`;
+  let y = 400;
+  let left = `<text x="56" y="374" font-size="14" font-weight="700" fill="${C.ink3}" letter-spacing="1">CENÁRIOS ACUMULADOS — RODADA ${DATA.current_round}</text>`;
   groups.slice(0, 4).forEach(g => {
     const names = g.teams.slice(0, 3).join(', ') + (g.teams.length > 3 ? ` +${g.teams.length - 3}` : '');
-    left += `<rect x="56" y="${y}" width="7" height="40" rx="3" fill="${g.color}"/>
-      <text x="76" y="${y+16}" font-size="13" font-weight="700" fill="${g.color}">${esc(g.label.toUpperCase())} (${g.teams.length})</text>
-      <text x="76" y="${y+36}" font-size="15.5" fill="${C.ink2}">${esc(names)}</text>`;
-    y += 58;
+    left += `<rect x="56" y="${y}" width="7" height="34" rx="3" fill="${g.color}"/>
+      <text x="76" y="${y+14}" font-size="12.5" font-weight="700" fill="${g.color}">${esc(g.label.toUpperCase())} (${g.teams.length})</text>
+      <text x="76" y="${y+31}" font-size="14.5" fill="${C.ink2}">${esc(names)}</text>`;
+    y += 50;
   });
 
   /* ritmo do líder: temporada corrente vs as 3 anteriores, mesmo eixo de rodada */
@@ -226,31 +302,31 @@ function renderStatus(){
   const others = seasons.filter(s => s !== curSeason);
   const maxN = Math.max(...seasons.map(s => DATA.ritmo[s].length));
   const maxV = Math.max(...seasons.flatMap(s => DATA.ritmo[s]));
-  const cx = 700, cw = 440, cy0 = 150, ch = 230;
+  const cx = 700, cw = 440, cy0 = 390, ch = 170;
   const px = i => cx + i / (maxN - 1) * cw;
   const pv = v => cy0 + ch - v / maxV * ch;
   const line = (arr, color, dim) => {
     const pts = arr.map((v,i) => `${px(i).toFixed(1)},${pv(v).toFixed(1)}`).join(' ');
     return `<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="${dim?2:3}" opacity="${dim?0.55:1}"/>`;
   };
-  let chart = `<text x="${cx}" y="118" font-size="15" font-weight="700" fill="${C.ink3}" letter-spacing="1">RITMO DO LÍDER</text>`;
+  let chart = `<text x="${cx}" y="374" font-size="14" font-weight="700" fill="${C.ink3}" letter-spacing="1">RITMO DO LÍDER</text>`;
   chart += `<line x1="${cx}" y1="${cy0+ch}" x2="${cx+cw}" y2="${cy0+ch}" stroke="${C.line}" stroke-width="1"/>`;
   others.forEach(s => chart += line(DATA.ritmo[s], C.ink4, true));
   chart += line(cur, C.accent, false);
   const lastI = cur.length - 1;
   chart += `<circle cx="${px(lastI).toFixed(1)}" cy="${pv(cur[lastI]).toFixed(1)}" r="5" fill="${C.accent}"/>`;
-  chart += `<text x="${px(lastI).toFixed(1)}" y="${(pv(cur[lastI])-14).toFixed(1)}" text-anchor="middle" font-size="14" font-weight="700" fill="${C.accent}">${cur[lastI]} pts</text>`;
+  chart += `<text x="${px(lastI).toFixed(1)}" y="${(pv(cur[lastI])-14).toFixed(1)}" text-anchor="middle" font-size="13" font-weight="700" fill="${C.accent}">${cur[lastI]} pts</text>`;
 
   const prevSeason = others[others.length-1];
   const prevAtSame = DATA.ritmo[prevSeason] && DATA.ritmo[prevSeason][lastI] != null ? DATA.ritmo[prevSeason][lastI] : null;
   let compareTxt = '';
   if (prevAtSame != null){
     const diff = cur[lastI] - prevAtSame;
-    compareTxt = `<text x="${cx}" y="${cy0+ch+42}" font-size="14.5" fill="${C.ink2}">Na rodada ${lastI+1}, o campeão de ${prevSeason} tinha ${prevAtSame} pts (${diff>=0?'+':''}${diff} de diferença hoje).</text>`;
+    compareTxt = `<text x="${cx}" y="${cy0+ch+34}" font-size="13" fill="${C.ink2}">Na rodada ${lastI+1}, o campeão de ${prevSeason} tinha ${prevAtSame} pts (${diff>=0?'+':''}${diff} hoje).</text>`;
   }
 
-  const inner = `${left}${chart}${compareTxt}`;
-  return {svg: shell(inner), name: `status-semanal-rodada-${DATA.current_round}.png`};
+  const inner = `${top}${left}${chart}${compareTxt}`;
+  return {svg: shell(inner, tagFor(DATA.current_round)), name: `status-semanal-rodada-${DATA.current_round}.png`};
 }
 
 const RENDERERS = {previa: renderPrevia, zebra: () => renderZebra(+document.getElementById('jogo').value), ranking: renderRanking, status: renderStatus};

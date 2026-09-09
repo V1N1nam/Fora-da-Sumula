@@ -40,6 +40,14 @@ from config import (  # noqa: E402
 TEMPLATE = ROOT / "fora-da-sumula-v3.html"
 OUTPUT = ROOT / "docs" / "index.html"
 
+# Ferramenta interna de export de imagens pra X -- pagina separada, sem
+# link em nenhum nav do site publico (ver <meta name="robots"> no
+# proprio template). Mesmo mecanismo de sentinela do template
+# principal, payload bem mais enxuto (so o que os 4 tipos de card
+# precisam, nao o DATA inteiro).
+EXPORT_TEMPLATE = ROOT / "fora-da-sumula-export.html"
+EXPORT_OUTPUT = ROOT / "docs" / "export" / "index.html"
+
 DECIDED_THRESHOLD = 0.85
 N_ZEBRAS = 24
 N_FORM = 5
@@ -221,6 +229,8 @@ def build_data() -> dict:
         teams[str(tid)] = row
 
     zebras, zebras_universo = build_zebras(short_names)
+    zebras_rodada = build_zebras_rodada(short_names)
+    proxima_rodada = build_proxima_rodada(short_names)
 
     data = {
         "season": CURRENT_SEASON,
@@ -234,6 +244,8 @@ def build_data() -> dict:
         "zebras_universo": zebras_universo,
         "ritmo": build_ritmo(),
         "h2h": build_h2h(team_order, short_names),
+        "zebras_rodada": zebras_rodada,
+        "proxima_rodada": proxima_rodada,
     }
     data["headline"] = build_headline(data)
     return data
@@ -259,6 +271,49 @@ def build_zebras(short_names: dict[int, str], n: int = N_ZEBRAS) -> tuple[list[d
             }
         )
     return out, universo
+
+
+def build_zebras_rodada(short_names: dict[int, str]) -> list[dict]:
+    """As zebras da rodada que acabou de fechar, mais improvavel primeiro
+    -- gerado por derived.zebras_da_rodada() e gravado em
+    zebras_rodada.parquet. Diferente de build_zebras(): aqui e so a
+    rodada atual, nao o top historico de 2023-2026."""
+    z = pd.read_parquet(PROCESSED / "zebras_rodada.parquet")
+    out = []
+    for row in z.itertuples(index=False):
+        out.append(
+            {
+                "date": row.date.date().isoformat(),
+                "round": int(row.round),
+                "mandante": short_names.get(int(row.mandante_id), row.mandante),
+                "visitante": short_names.get(int(row.visitante_id), row.visitante),
+                "placar": row.placar,
+                "probabilidade": round(float(row.probabilidade), 4),
+            }
+        )
+    return out
+
+
+def build_proxima_rodada(short_names: dict[int, str]) -> list[dict]:
+    """Confrontos agendados da proxima rodada, com a probabilidade de
+    zebra (lado mais fraco por rating atual vencer) de cada jogo --
+    gerado por derived.zebra_provavel_proxima_rodada() e gravado em
+    zebra_provavel.parquet, ja ordenado do jogo com mais chance de
+    zebra pro com menos."""
+    z = pd.read_parquet(PROCESSED / "zebra_provavel.parquet")
+    out = []
+    for row in z.itertuples(index=False):
+        out.append(
+            {
+                "round": int(row.round),
+                "data": row.data[:10],
+                "mandante": short_names.get(int(row.mandante_id), row.mandante),
+                "visitante": short_names.get(int(row.visitante_id), row.visitante),
+                "favorito": row.favorito,
+                "prob_zebra": round(float(row.prob_zebra), 4),
+            }
+        )
+    return out
 
 
 def build_ritmo() -> dict[str, list[int]]:
@@ -332,6 +387,52 @@ def build_headline(data: dict) -> dict:
     return {"answer": answer, "p1": p1_id, "p2": p2_id}
 
 
+def build_export_data(data: dict) -> dict:
+    """Payload enxuto pro gerador de imagens (fora-da-sumula-export.html):
+    so os 4 tipos de card usam, nao o DATA inteiro do site (que carrega
+    historico de titulo/g4/z4/rating por clube, rodada a rodada -- peso
+    morto pra quem so quer gerar uma imagem). Derivado do `data` que
+    build_data() ja montou, sem reler parquet."""
+    cenarios = []
+    for tid in data["team_order"]:
+        t = data["teams"][tid]
+        flags = {
+            k: t[k]
+            for k in (
+                "titulo_confirmado", "titulo_descartado", "g4_confirmado",
+                "g4_descartado", "z4_confirmado", "z4_descartado",
+            )
+            if k in t
+        }
+        if any(flags.values()):
+            cenarios.append({"team": t["short_name"], **flags})
+
+    return {
+        "season": data["season"],
+        "current_round": data["current_round"],
+        "total_rounds": data["total_rounds"],
+        "updated": data["updated"],
+        "zebras_rodada": data["zebras_rodada"],
+        "proxima_rodada": data["proxima_rodada"],
+        "ritmo": data["ritmo"],
+        "cenarios": cenarios,
+    }
+
+
+def render_export(template: str, export_data: dict) -> str:
+    """Mesma logica de sentinela de render(), so pra sentinela DATA --
+    o template de export nao tem a segunda sentinela __ELO__ (nao mostra
+    parametro de modelo, so os 4 cards)."""
+    data_json = json.dumps(export_data, ensure_ascii=False, separators=(",", ":"))
+    template, n = re.subn(
+        r"^const DATA = .*?; /\*__DATA__\*/$",
+        lambda _: f"const DATA = {data_json}; /*__DATA__*/",
+        template, count=1, flags=re.M | re.S,
+    )
+    assert n == 1, "nao achei a sentinela /*__DATA__*/ no template de export"
+    return template
+
+
 def fmt_num(v: float) -> str:
     return str(int(v)) if float(v).is_integer() else repr(float(v))
 
@@ -382,6 +483,12 @@ def main() -> None:
     OUTPUT.write_text(html, encoding="utf-8", newline="\n")
     print(f"{OUTPUT} escrito ({OUTPUT.stat().st_size / 1024:.0f} KB), rodada {data['current_round']}, "
           f"{len(data['teams'])} clubes")
+
+    export_data = build_export_data(data)
+    export_html = render_export(EXPORT_TEMPLATE.read_text(encoding="utf-8"), export_data)
+    EXPORT_OUTPUT.parent.mkdir(parents=True, exist_ok=True)
+    EXPORT_OUTPUT.write_text(export_html, encoding="utf-8", newline="\n")
+    print(f"{EXPORT_OUTPUT} escrito ({EXPORT_OUTPUT.stat().st_size / 1024:.0f} KB)")
 
 
 if __name__ == "__main__":

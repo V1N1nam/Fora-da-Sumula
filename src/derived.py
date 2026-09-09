@@ -18,7 +18,9 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from config import ELO_DRAW_NU, ELO_HFA, ELO_INITIAL_RATING, ELO_K, PROCESSED, RAW  # noqa: E402
+from config import (  # noqa: E402
+    CURRENT_SEASON, ELO_DRAW_NU, ELO_HFA, ELO_INITIAL_RATING, ELO_K, PROCESSED, RAW,
+)
 from calibrate_elo import HISTORICAL_SEASONS, davidson_probs, update_ratings  # noqa: E402
 from elo import load_matches  # noqa: E402
 
@@ -461,6 +463,69 @@ def cenarios() -> pd.DataFrame:
     return now[cols].reset_index(drop=True)
 
 
+# ---------------------------------------------------- 8. zebras_da_rodada
+
+def zebras_da_rodada(match_ratings: pd.DataFrame, season: int, round_: int) -> pd.DataFrame:
+    """Mesmo ranking de maiores_zebras, mas so com os jogos de UMA
+    rodada fechada -- pra "zebras da rodada que fechou" no export/site,
+    nao o top histórico de 2023-2026 inteiro. Reusa maiores_zebras() em
+    cima de um recorte de match_ratings (sem duplicar a conta de
+    probabilidade)."""
+    subset = match_ratings[(match_ratings["season"] == season) & (match_ratings["round"] == round_)]
+    out = maiores_zebras(subset)
+    out.insert(1, "round", round_)
+    return out
+
+
+# ---------------------------------------------- 9. zebra_provavel_proxima_rodada
+
+def zebra_provavel_proxima_rodada(matches: pd.DataFrame, ratings: pd.DataFrame) -> pd.DataFrame:
+    """Para os jogos AGENDADOS (sem placar) da proxima rodada, a
+    probabilidade de vitoria do lado mais fraco (por rating ATUAL, ja
+    que o jogo ainda nao aconteceu -- nao existe rating pre-jogo aqui).
+    Ordenado do jogo com maior chance de zebra pro menor. 'ratings' e o
+    elo_ratings.parquet gerado por elo.py (rating por team_id a cada
+    rodada); usa a rodada mais recente disponivel nele."""
+    current_round = int(ratings["round"].max())
+    latest = ratings[ratings["round"] == current_round].set_index("team_id")["rating"]
+
+    scheduled = matches[matches["home_goals"].isna()]
+    if scheduled.empty:
+        return pd.DataFrame(columns=[
+            "season", "round", "mandante_id", "mandante", "visitante_id", "visitante",
+            "data", "favorito", "prob_zebra",
+        ])
+    next_round = int(scheduled["matchday"].min())
+    fixtures = scheduled[scheduled["matchday"] == next_round]
+
+    rows = []
+    for row in fixtures.itertuples(index=False):
+        home, away = int(row.home_team_id), int(row.away_team_id)
+        if home not in latest.index or away not in latest.index:
+            continue
+        r_home, r_away = float(latest[home]), float(latest[away])
+        p_home, p_draw, p_away = davidson_probs(
+            np.array([r_home]), np.array([r_away]), ELO_HFA, ELO_DRAW_NU
+        )
+        p_home, p_away = float(p_home[0]), float(p_away[0])
+        favorito = "mandante" if r_home >= r_away else "visitante"
+        prob_zebra = p_away if favorito == "mandante" else p_home
+        rows.append(
+            {
+                "season": int(row.season),
+                "round": next_round,
+                "mandante_id": home,
+                "mandante": row.home_team,
+                "visitante_id": away,
+                "visitante": row.away_team,
+                "data": row.utc_date,
+                "favorito": favorito,
+                "prob_zebra": round(prob_zebra, 4),
+            }
+        )
+    return pd.DataFrame(rows).sort_values("prob_zebra", ascending=False).reset_index(drop=True)
+
+
 # --------------------------------------------------------------- main
 
 def main() -> None:
@@ -545,6 +610,21 @@ def main() -> None:
     cen.to_parquet(PROCESSED / "cenarios.parquet", index=False)
     print(f"cenarios: {len(cen)} linhas -> cenarios.parquet (rodada {int(cen['round'].iloc[0])})")
     print(cen.to_string(index=False))
+    print()
+
+    current_round = int(cen["round"].iloc[0])
+    zeb_rodada = zebras_da_rodada(match_ratings, CURRENT_SEASON, current_round)
+    zeb_rodada.to_parquet(PROCESSED / "zebras_rodada.parquet", index=False)
+    print(f"zebras_rodada: {len(zeb_rodada)} linhas -> zebras_rodada.parquet (rodada {current_round})")
+    print(zeb_rodada.to_string(index=False))
+    print()
+
+    elo_ratings = pd.read_parquet(PROCESSED / "elo_ratings.parquet")
+    zeb_prox = zebra_provavel_proxima_rodada(df, elo_ratings)
+    zeb_prox.to_parquet(PROCESSED / "zebra_provavel.parquet", index=False)
+    prox_round = int(zeb_prox["round"].iloc[0]) if len(zeb_prox) else current_round + 1
+    print(f"zebra_provavel: {len(zeb_prox)} linhas -> zebra_provavel.parquet (rodada {prox_round})")
+    print(zeb_prox.to_string(index=False))
 
 
 if __name__ == "__main__":

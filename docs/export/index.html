@@ -83,7 +83,7 @@ textarea#caption{width:100%;font:inherit;font-size:13.5px;line-height:1.55;paddi
       </div>
     </div>
     <div class="stage dlpreview" id="dlStage" hidden>
-      <div class="meta" style="margin-top:0 0 8px">Arquivo gerado (clique com o botão direito para salvar):</div>
+      <div class="meta" style="margin-top:0 0 8px">Imagem gerada. No computador, o download já deve ter começado — se não, ou se estiver no celular, toque e segure (ou clique com o botão direito) na imagem abaixo e escolha "salvar imagem":</div>
       <img id="dlImg" alt="PNG exportado">
     </div>
   </div>
@@ -523,29 +523,47 @@ function rerollCaption(){
   document.getElementById('caption').value = again.caption || '';
 }
 
-async function download(){
+/* No celular (principalmente Safari/iOS) o atributo `download` do <a>
+   costuma ser ignorado pra blob:/data: -- o link so abre a imagem em
+   vez de salvar, sem erro nenhum, sem aviso. Por isso o fallback
+   abaixo (imagem visivel pra segurar e salvar) NAO e so um extra pro
+   caso o download falhe: e o caminho garantido no celular, sempre
+   mostrado, nao só quando algo da errado. Nao usa `await` antes do
+   clique no <a> pra nao quebrar a cadeia de gesto do usuario que
+   alguns navegadores mobile exigem pra permitir download.*/
+function download(){
   if (!currentResult) return;
-  await (document.fonts && document.fonts.ready);
   const scale = 2;
   const svgBlob = new Blob([currentResult.svg], {type:'image/svg+xml;charset=utf-8'});
   const url = URL.createObjectURL(svgBlob);
   const img = new Image();
   img.onload = () => {
-    const canvas = document.createElement('canvas');
-    canvas.width = W * scale;
-    canvas.height = H * scale;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = W * scale;
+      canvas.height = H * scale;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      const dataUrl = canvas.toDataURL('image/png');
+
+      document.getElementById('dlImg').src = dataUrl;
+      document.getElementById('dlStage').hidden = false;
+
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = currentResult.name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (err) {
+      document.getElementById('dlStage').hidden = true;
+      alert('Não deu pra gerar o PNG neste navegador. Tente atualizar a página ou usar outro navegador.');
+    }
+  };
+  img.onerror = () => {
     URL.revokeObjectURL(url);
-    const dataUrl = canvas.toDataURL('image/png');
-    const a = document.createElement('a');
-    a.href = dataUrl;
-    a.download = currentResult.name;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    document.getElementById('dlImg').src = dataUrl;
-    document.getElementById('dlStage').hidden = false;
+    alert('Não deu pra carregar o card pra exportar. Tente atualizar a página.');
   };
   img.src = url;
 }

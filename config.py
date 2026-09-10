@@ -44,16 +44,3 @@ ELO_DRAW_NU = 0.7404522613065327
 
 # Simulacoes de Monte Carlo do restante da temporada corrente.
 ELO_N_SIMULATIONS = 10_000
-
-# Intervalo entre requests no scraping de eventos de chute.
-# O FBref tolera ~1 request a cada 3s. Nao reduza.
-SHOT_SCRAPE_DELAY = 3.5
-
-# Limiar de xG que define "grande chance" no nosso proxy.
-# A definicao oficial da Opta e proprietaria; 0.30 e a aproximacao
-# mais usada publicamente. Documente isso no site.
-BIG_CHANCE_XG = 0.30
-
-# Teto de gols na convolucao de Poisson para xPTS.
-# 15 cobre qualquer placar real com folga.
-MAX_GOALS = 15

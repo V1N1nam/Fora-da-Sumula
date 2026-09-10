@@ -67,10 +67,10 @@ busca, não API), Big Balls Data (não cobre Brasil), StatsHub
 (widget da Sportradar, não API), Opta/Stats Perform direto
 (enterprise, sem self-service).
 
-**Resíduo da era FBref:** `config.py` ainda define
-`SHOT_SCRAPE_DELAY`, `BIG_CHANCE_XG` e `MAX_GOALS`. Nenhum é lido
-por nenhum módulo — são sobras da ideia de xG. Não usar como prova
-de que existe pipeline de chute/xG; ele não existe.
+**Resíduo da era FBref:** `config.py` teve `SHOT_SCRAPE_DELAY`,
+`BIG_CHANCE_XG` e `MAX_GOALS` — sobras da ideia de xG, nunca lidas
+por módulo nenhum. Removidos. Não recriar: não existe pipeline de
+chute/xG, e constante órfã em `config.py` só faz parecer que existe.
 
 ## Calibração do modelo (não recalibrar sem motivo)
 
@@ -88,15 +88,29 @@ template (`fora-da-sumula-v3.html`), substituída por
 `build_site.render()` — que dá `assert` se a sentinela sumir.
 Não hardcode esses valores no template.
 
-O que **continua manual** depois de recalibrar:
+O que **continua manual** depois de recalibrar: propagar o
+resultado de `validate_elo.py` — ver a regra abaixo.
 
-1. Rodar `python src/validate_elo.py` (não está no Actions).
-2. Copiar o resultado para o objeto `const V = {sim, lo, hi, reais}`
-   no template — é a única coisa da ficha que não vem do payload.
-3. Atualizar a tabela equivalente no README ("Limitações conhecidas").
+## Resultado de validate_elo.py mora em dois lugares — atualizar os dois no mesmo commit
 
-Não há teste automático que pegue isso desatualizado: se esquecer,
-o site publica a validação de um modelo que não é mais o que roda.
+`src/validate_elo.py` é manual (não está no Actions) e roda quando
+K, HFA, ν ou o bootstrap de placar de `elo.py` mudarem. O número
+que ele imprime é copiado à mão para **dois** lugares, e nada no
+build compara um com o outro:
+
+1. `const V = {sim, lo, hi, reais}` em
+   `fora-da-sumula-v3.html:1901` — desenha a faixa de validação da
+   ficha. É a única coisa daquela seção que não vem do payload.
+2. A tabela da seção "Limitações conhecidas" do `README.md`.
+
+**Sempre que `validate_elo.py` rodar de novo com resultado
+diferente, os dois vão no mesmo commit.** Não existe sentinela,
+assert ou teste que pegue divergência aqui — ao contrário de
+`/*__ELO__*/` e `/*__DATA__*/`, que quebram o build alto se
+sumirem. Se só um for atualizado, README e site passam a afirmar
+validações diferentes do mesmo modelo, em silêncio, e a única
+forma de descobrir é alguém comparar na mão. Atualizar um sem o
+outro é pior que não atualizar nenhum.
 
 ## Pipeline (ordem importa)
 

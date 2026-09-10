@@ -549,6 +549,12 @@ def main() -> None:
 
     PROCESSED.mkdir(parents=True, exist_ok=True)
 
+    # gravado pro mini-game "Seu palpite" (build_palpite_pool em
+    # build_site.py): rating PRE-jogo real de cada partida, o mesmo que
+    # todo o resto deste arquivo usa -- nao o snapshot por rodada de
+    # elo_ratings.parquet, que erra nos jogos adiados.
+    match_ratings.to_parquet(PROCESSED / "match_ratings.parquet", index=False)
+
     xpts = xpts_forca(match_ratings)
     xpts.to_parquet(PROCESSED / "xpts_forca.parquet", index=False)
     print(f"xpts_forca: {len(xpts)} linhas -> xpts_forca.parquet")

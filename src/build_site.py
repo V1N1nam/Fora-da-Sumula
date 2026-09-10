@@ -34,8 +34,10 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from config import (  # noqa: E402
-    CURRENT_SEASON, ELO_DRAW_NU, ELO_HFA, ELO_K, ELO_N_SIMULATIONS, PROCESSED, RAW, ROOT,
+    CURRENT_SEASON, ELO_DRAW_NU, ELO_HFA, ELO_INITIAL_RATING, ELO_K, ELO_N_SIMULATIONS,
+    PROCESSED, RAW, ROOT,
 )
+from elo import build_score_pools  # noqa: E402
 
 TEMPLATE = ROOT / "fora-da-sumula-v3.html"
 OUTPUT = ROOT / "docs" / "index.html"
@@ -234,6 +236,13 @@ def build_data() -> dict:
     prev_round = rounds[-2] if len(rounds) > 1 else None
     mudancas_semana = build_mudancas_semana(teams, [str(t) for t in team_order])
 
+    matches_all = pd.read_parquet(RAW / "matches.parquet")
+    palpite = {
+        "pool": build_palpite_pool(short_names),
+        "proxima": build_palpite_proxima(matches, short_names, last_rating, updated),
+        "mc": build_palpite_mc(matches_all, matches, team_order, teams, last_rating),
+    }
+
     data = {
         "season": CURRENT_SEASON,
         "current_round": current_round,
@@ -250,6 +259,7 @@ def build_data() -> dict:
         "proxima_rodada": proxima_rodada,
         "prev_round": prev_round,
         "mudancas_semana": mudancas_semana,
+        "palpite": palpite,
     }
     data["headline"] = build_headline(data)
     return data
@@ -404,6 +414,120 @@ def build_proxima_rodada(short_names: dict[int, str]) -> list[dict]:
             }
         )
     return out
+
+
+PALPITE_JANELA_POOL = 8  # ultimas N rodadas no pool de jogos passados do mini-game (Modo 1)
+
+
+def build_palpite_pool(short_names: dict[int, str]) -> list[dict]:
+    """Jogos passados pro Modo 1 do mini-game 'Seu palpite': as ultimas
+    PALPITE_JANELA_POOL rodadas da temporada corrente, com o rating
+    PRE-jogo real de cada lado -- le match_ratings.parquet (gravado por
+    derived.py), nao o snapshot por rodada de elo_ratings.parquet, que
+    erra nos jogos adiados (mesma razao do corte por utc_date usado em
+    build_form_and_next)."""
+    mr = pd.read_parquet(PROCESSED / "match_ratings.parquet")
+    cur = mr[mr["season"] == CURRENT_SEASON].sort_values("date")
+    corte = int(cur["round"].max()) - PALPITE_JANELA_POOL + 1
+    out = []
+    for row in cur[cur["round"] >= corte].itertuples(index=False):
+        hg, ag = int(row.home_goals), int(row.away_goals)
+        out.append(
+            {
+                "id": int(row.match_id),
+                "md": int(row.round),
+                "data": str(row.date)[:10],
+                "casa": short_names.get(int(row.home_team_id), row.home_team),
+                "fora": short_names.get(int(row.away_team_id), row.away_team),
+                "rc": round(float(row.r_home_pre), 1),
+                "rf": round(float(row.r_away_pre), 1),
+                "gc": hg,
+                "gf": ag,
+                "res": "C" if hg > ag else ("E" if hg == ag else "F"),
+            }
+        )
+    return out
+
+
+def build_palpite_proxima(
+    matches: pd.DataFrame, short_names: dict[int, str], last_rating: pd.Series, cutoff: str
+) -> list[dict]:
+    """Jogos da proxima rodada agendada pro Modo 2 do mini-game, com o
+    rating vigente dos dois lados (== rating pre-jogo, ja que ainda nao
+    foram disputados). Mesmo corte de build_form_and_next: utc_date >=
+    cutoff, nunca matchday minimo -- jogo adiado sem data nova quebraria
+    isso. Distinto de build_proxima_rodada(): aquele traz so a
+    probabilidade de zebra por rating atual, este traz os dois ratings
+    pra o Davidson do lado do usuario poder ser recalculado no navegador."""
+    scheduled = matches[matches["home_goals"].isna() & (matches["utc_date"] >= cutoff)]
+    if scheduled.empty:
+        return []
+    next_round = int(scheduled.loc[scheduled["utc_date"].idxmin(), "matchday"])
+    fixtures = scheduled[scheduled["matchday"] == next_round].sort_values("utc_date")
+    out = []
+    for row in fixtures.itertuples(index=False):
+        hi, ai = int(row.home_team_id), int(row.away_team_id)
+        out.append(
+            {
+                "id": int(row.match_id),
+                "md": next_round,
+                "data": row.utc_date[:10],
+                "casa": short_names.get(hi, row.home_team),
+                "fora": short_names.get(ai, row.away_team),
+                "rc": round(float(last_rating.get(hi, ELO_INITIAL_RATING)), 1),
+                "rf": round(float(last_rating.get(ai, ELO_INITIAL_RATING)), 1),
+            }
+        )
+    return out
+
+
+def build_palpite_mc(
+    matches_all: pd.DataFrame,
+    matches_current: pd.DataFrame,
+    team_order: list[int],
+    teams: dict,
+    last_rating: pd.Series,
+) -> dict:
+    """Estado da simulacao pra Etapa 4 do mini-game (impacto na tabela se
+    a proxima rodada saisse pelas probabilidades do usuario): rating
+    vigente, estatisticas reais e jogos restantes de cada clube da
+    temporada corrente, indexados na ordem de team_order, mais os
+    baldes de placar de temporadas fechadas -- os mesmos que elo.py usa,
+    pro port em JS (Monte Carlo no navegador) reproduzir o motor
+    exatamente. O payload e o cenario 'antes'; o navegador so recalcula
+    o 'depois', com as 10 mil simulacoes rodando no aparelho do usuario
+    (medido em ~90ms num celular real -- ver CLAUDE.md)."""
+    idx = {t: i for i, t in enumerate(team_order)}
+    times = []
+    for tid in team_order:
+        t = teams[str(tid)]
+        times.append(
+            {
+                "id": tid,
+                "nome": t["short_name"],
+                "rating": round(float(last_rating.get(tid, ELO_INITIAL_RATING)), 1),
+                "pts": t.get("real_points", 0),
+                "vit": t.get("real_won", 0),
+                "sg": t.get("real_gd", 0),
+                "gp": t.get("real_gf", 0),
+            }
+        )
+
+    remaining = matches_current[matches_current["home_goals"].isna()]
+    jogos = [
+        [idx[int(row.home_team_id)], idx[int(row.away_team_id)], int(row.match_id)]
+        for row in remaining.itertuples(index=False)
+        if int(row.home_team_id) in idx and int(row.away_team_id) in idx
+    ]
+
+    pools = build_score_pools(matches_all)
+    return {
+        "times": times,
+        "jogos": jogos,
+        "pool_casa": pools["home"].tolist(),
+        "pool_empate": pools["draw"].tolist(),
+        "pool_fora": pools["away"].tolist(),
+    }
 
 
 def build_ritmo() -> dict[str, list[int]]:

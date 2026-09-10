@@ -415,6 +415,113 @@ table.tbl tr.edge td{border-bottom:1px solid var(--line-2);box-shadow:inset 0 -1
 .dbar .b{position:absolute;top:4px;height:10px;border-radius:2px;width:0;
   transition:width var(--dur-3) var(--ease)}
 
+/* ---------- seu palpite -------------------------------------- */
+.pb-head{display:flex;align-items:baseline;justify-content:space-between;
+  gap:var(--s3);flex-wrap:wrap;margin-bottom:var(--s4)}
+.pb-jogo{font-family:var(--f-serif);font-size:clamp(21px,3.2vw,28px);line-height:1.15}
+.pb-meta{font-size:12px;color:var(--ink-3)}
+.pb-stack{display:flex;gap:2px;height:10px;margin-bottom:var(--s5)}
+.pb-seg{border-radius:2px;min-width:0}
+.pb-seg.h{background:var(--accent)} .pb-seg.d{background:var(--amber)} .pb-seg.a{background:var(--blue)}
+.pb-rows{display:flex;flex-direction:column;gap:var(--s4)}
+.pb-row{display:grid;grid-template-columns:1fr auto;gap:var(--s2) var(--s3);align-items:center}
+.pb-lab{font-size:13.5px;font-weight:500;color:var(--ink-2);display:flex;align-items:center;gap:var(--s2)}
+.pb-dot{width:7px;height:7px;border-radius:50%;flex:none}
+.pb-row.h .pb-dot{background:var(--accent)} .pb-row.d .pb-dot{background:var(--amber)}
+.pb-row.a .pb-dot{background:var(--blue)}
+.pb-val{font-size:15px;font-weight:700;letter-spacing:-.02em;justify-self:end}
+.pb-row.h .pb-val{color:var(--accent)} .pb-row.d .pb-val{color:var(--amber)}
+.pb-row.a .pb-val{color:var(--blue)}
+.pb-track{grid-column:1 / -1;position:relative;height:34px;border-radius:var(--r-sm);
+  background:var(--surface-3);cursor:grab;touch-action:none;
+  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+.pb-track:active{cursor:grabbing}
+.pb-fill{position:absolute;inset:0 auto 0 0;border-radius:var(--r-sm);
+  transition:width var(--dur-2) var(--ease)}
+.pb-row.h .pb-fill{background:var(--accent)} .pb-row.d .pb-fill{background:var(--amber)}
+.pb-row.a .pb-fill{background:var(--blue)}
+.pb-knob{position:absolute;top:50%;width:4px;height:18px;border-radius:var(--r-pill);
+  background:var(--surface);opacity:.9;transform:translate(-50%,-50%);pointer-events:none;
+  transition:left var(--dur-2) var(--ease)}
+.pb-track.dragging .pb-fill,.pb-track.dragging .pb-knob{transition:none}
+.pb-track:hover .pb-fill{filter:brightness(1.06)}
+.pb-track:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+.pb-foot{display:flex;align-items:center;justify-content:space-between;gap:var(--s3);
+  flex-wrap:wrap;margin-top:var(--s5);padding-top:var(--s4);border-top:1px solid var(--line)}
+.pb-soma{font-size:12px;color:var(--ink-3)}
+.pb-soma b{color:var(--ink);font-weight:700}
+
+.pp-passos{display:flex;align-items:center;gap:var(--s3);margin-bottom:var(--s5);flex-wrap:wrap}
+.pp-pontos{display:flex;gap:3px}
+.pp-pt{width:16px;height:4px;border-radius:var(--r-pill);background:var(--surface-3)}
+.pp-pt.feito{background:var(--ink-3)} .pp-pt.atual{background:var(--accent)}
+.pp-passos .qual{font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
+.pp-passos .placar{margin-left:auto;font-size:12px;color:var(--ink-3)}
+.pp-passos .placar b{color:var(--ink);font-weight:700}
+
+.pp-revela{margin-top:var(--s5);padding-top:var(--s5);border-top:1px solid var(--line)}
+.pp-real{display:flex;align-items:baseline;gap:var(--s3);flex-wrap:wrap}
+.pp-real .pl{font-family:var(--f-serif);font-size:clamp(28px,5vw,38px);line-height:1}
+.pp-real .qt{font-size:12.5px;color:var(--ink-3)}
+.pp-cmp{display:grid;grid-template-columns:auto repeat(3,1fr);gap:1px;margin-top:var(--s5);
+  background:var(--line);border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden}
+.pp-cmp>div{background:var(--surface);padding:var(--s3) var(--s2);text-align:center;font-size:13px}
+.pp-cmp>div.rot{text-align:left;padding-left:var(--s3);font-size:11px;font-weight:600;
+  letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);display:flex;align-items:center}
+.pp-cmp>div.cab{font-size:11px;font-weight:600;color:var(--ink-3);line-height:1.3}
+.pp-cmp>div.venc{background:var(--accent-soft)}
+.pp-cmp .vv{font-weight:700;font-size:15px;letter-spacing:-.02em}
+.pp-cmp .dd{font-size:11px;margin-top:1px}
+.pp-cmp .chip{display:inline-block;font-size:9.5px;font-weight:700;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--accent);margin-top:2px}
+.pp-veredito{display:flex;align-items:center;gap:var(--s3);margin-top:var(--s5);
+  padding:var(--s4);border-radius:var(--r-md);background:var(--surface-2);border:1px solid var(--line)}
+.pp-veredito .big{font-size:27px;font-weight:700;letter-spacing:-.035em;line-height:1}
+.pp-veredito .tx{font-size:13px;color:var(--ink-2);line-height:1.5}
+.pp-veredito .tx b{color:var(--ink);font-weight:600}
+.pp-avanca{display:flex;align-items:center;gap:var(--s4);margin-top:var(--s5)}
+.pp-tbar{flex:1;height:3px;border-radius:var(--r-pill);background:var(--surface-3);overflow:hidden}
+.pp-tbar i{display:block;height:100%;width:0;background:var(--ink-4);transition:width 4.2s linear}
+
+.pp-lista{display:flex;flex-direction:column;gap:1px;background:var(--line);
+  border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden}
+.pp-lin{display:grid;grid-template-columns:auto 1fr auto auto;gap:var(--s3);align-items:center;
+  background:var(--surface);padding:var(--s3) var(--s4);font-size:13px}
+.pp-lin.simples{grid-template-columns:1fr auto}
+.pp-lin .em{font-size:15px}
+.pp-lin .jg{color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pp-lin .vc{font-weight:700;color:var(--accent);min-width:40px;text-align:right}
+.pp-lin .md{color:var(--ink-3);min-width:40px;text-align:right}
+.pp-lin .tri{font-size:12px;color:var(--ink-4);white-space:nowrap}
+.pp-lin .tri b{color:var(--accent);font-weight:700}
+
+.pp-total{display:grid;grid-template-columns:1fr 1fr;gap:var(--s4);margin:var(--s5) 0}
+.pp-tot{padding:var(--s4);border-radius:var(--r-md);background:var(--surface-2);border:1px solid var(--line)}
+.pp-tot .k{font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
+.pp-tot .v{font-size:clamp(28px,5.4vw,38px);font-weight:700;letter-spacing:-.04em;line-height:1.05;margin-top:var(--s2)}
+.pp-tot.voce .v{color:var(--accent)} .pp-tot.mod .v{color:var(--ink-2)}
+.pp-grid{font-size:24px;letter-spacing:.13em;margin:var(--s4) 0;line-height:1.35}
+.pp-saida{margin-top:var(--s4);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:12px;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-md);
+  padding:var(--s3) var(--s4);color:var(--ink-2);white-space:pre-wrap;width:100%;resize:vertical}
+
+.pp-aviso{
+  display:grid;grid-template-columns:auto 1fr;gap:var(--s4);align-items:start;
+  padding:var(--s5);border-radius:var(--r-lg);background:var(--amber-soft);border:1px solid var(--amber);
+}
+.pp-aviso .marca{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--amber);writing-mode:vertical-rl;transform:rotate(180deg);align-self:stretch;
+  text-align:center;padding:2px 0}
+.pp-aviso p{font-family:var(--f-serif);font-size:clamp(18px,2.6vw,23px);line-height:1.28;
+  color:var(--ink);text-wrap:balance}
+@media(max-width:520px){
+  .pp-aviso{grid-template-columns:1fr}
+  .pp-aviso .marca{writing-mode:horizontal-tb;transform:none;text-align:left}
+}
+.pp-resumoSim{display:flex;align-items:baseline;gap:var(--s3);flex-wrap:wrap;
+  font-size:13px;color:var(--ink-3)}
+.pp-resumoSim b{font-size:16px;color:var(--ink);font-weight:700;letter-spacing:-.02em}
+
 .zgrid{display:grid;gap:var(--s3)}
 .zcard{
   display:grid;grid-template-columns:32px 1fr auto;gap:var(--s4);align-items:center;
@@ -850,6 +957,26 @@ document.documentElement.dataset.theme=t;}catch(e){document.documentElement.data
     </div>
     <div id="vsOut" aria-live="polite"></div>
   </div>
+</section>
+
+<!-- ===================== SEU PALPITE ===================== -->
+<section class="view" id="v-palpite" aria-labelledby="h-palpite">
+  <div class="head">
+    <p class="eyebrow"><span>Você contra o modelo</span></p>
+    <h1 id="h-palpite">Seu palpite</h1>
+    <p class="lede">Distribua a chance de vitória, empate e derrota como o modelo faz, e veja se
+      você bate o Davidson — em jogos que já aconteceram, ou na próxima rodada, antes da bola rolar.</p>
+  </div>
+
+  <div class="btnrow" style="margin-top:var(--s5)">
+    <div class="seg" id="palpiteSeg" role="group" aria-label="Modo do jogo">
+      <span class="thumb" aria-hidden="true"></span>
+      <button type="button" data-m="passadas" aria-pressed="true">Rodadas passadas</button>
+      <button type="button" data-m="proxima" aria-pressed="false">Próxima rodada</button>
+    </div>
+  </div>
+
+  <div id="palpiteBody" style="margin-top:var(--s6)"></div>
 </section>
 
 <!-- ===================== COMO FUNCIONA ===================== -->
@@ -1846,6 +1973,661 @@ function h2hBlock(hk, ak){
 }
 
 /* ============================================================
+   SEU PALPITE
+   ============================================================ */
+
+/* barras interativas: tres valores que somam sempre 100.
+   Componente generico, sem logica de jogo -- so reflete `aoMudar`. */
+function criarBarras(host, opts){
+  const cfg = Object.assign({
+    rotulos: ['Vitória do mandante', 'Empate', 'Vitória do visitante'],
+    valores: null, jogo: '', meta: '', aoMudar: null, resumo: true, reiniciar: true
+  }, opts || {});
+  const CLS = ['h', 'd', 'a'];
+  let vals = normalizarPP(cfg.valores || [100 / 3, 100 / 3, 100 / 3]);
+  const inicial = vals.slice();
+  let travado = false;
+
+  host.innerHTML =
+    (cfg.jogo ? `<div class="pb-head"><div class="pb-jogo">${cfg.jogo}</div>
+       <div class="pb-meta">${cfg.meta}</div></div>` : '') +
+    (cfg.resumo ? `<div class="pb-stack" aria-hidden="true">
+       ${CLS.map(c => `<div class="pb-seg ${c}"></div>`).join('')}</div>` : '') +
+    `<div class="pb-rows">` + CLS.map((c, i) => `
+      <div class="pb-row ${c}">
+        <span class="pb-lab"><span class="pb-dot"></span>${cfg.rotulos[i]}</span>
+        <span class="pb-val" data-val="${i}"></span>
+        <div class="pb-track" data-i="${i}" tabindex="0" role="slider"
+             aria-valuemin="0" aria-valuemax="100" aria-label="${cfg.rotulos[i]}">
+          <div class="pb-fill"></div><div class="pb-knob"></div>
+        </div>
+      </div>`).join('') + `</div>` +
+    `<div class="pb-foot">
+       <span class="pb-soma">Soma: <b data-soma>100%</b></span>
+       ${cfg.reiniciar ? '<button class="btn ghost" type="button" data-reset>Reiniciar</button>' : ''}
+     </div>`;
+
+  const tracks = [...host.querySelectorAll('.pb-track')];
+  const fills  = [...host.querySelectorAll('.pb-fill')];
+  const knobs  = [...host.querySelectorAll('.pb-knob')];
+  const segs   = [...host.querySelectorAll('.pb-seg')];
+  const labels = [...host.querySelectorAll('[data-val]')];
+  const soma   = host.querySelector('[data-soma]');
+
+  function normalizarPP(v){
+    const t = v.reduce((a, b) => a + b, 0);
+    return t > 0 ? v.map(x => x / t * 100) : [100 / 3, 100 / 3, 100 / 3];
+  }
+  /* maior-resto: os tres inteiros exibidos somam sempre 100 */
+  function inteiros(v){
+    const base = v.map(Math.floor);
+    const falta = 100 - base.reduce((a, b) => a + b, 0);
+    const ordem = v.map((x, i) => ({i, f: x - Math.floor(x)})).sort((a, b) => b.f - a.f);
+    for (let n = 0; n < falta; n++) base[ordem[n % 3].i]++;
+    return base;
+  }
+  /* `ratio` e a proporcao entre as duas barras passivas, congelada no
+     inicio do gesto -- se recalculasse a cada quadro, um arraste longo
+     faria as passivas derivarem sozinhas e o gesto ficaria irreversivel. */
+  function aplicar(i, v, ratio){
+    v = Math.max(0, Math.min(100, v));
+    const [j, k] = [0, 1, 2].filter(x => x !== i);
+    const sobra = 100 - v;
+    let rj;
+    if (ratio !== null && ratio !== undefined) rj = ratio;
+    else { const s = vals[j] + vals[k]; rj = s > 0 ? vals[j] / s : 0.5; }
+    vals[i] = v; vals[j] = sobra * rj; vals[k] = sobra * (1 - rj);
+    pintar();
+    if (cfg.aoMudar) cfg.aoMudar(vals.slice());
+  }
+  function pintar(){
+    const ints = inteiros(vals);
+    vals.forEach((v, i) => {
+      fills[i].style.width = v + '%';
+      knobs[i].style.left = v + '%';
+      labels[i].textContent = ints[i] + '%';
+      tracks[i].setAttribute('aria-valuenow', ints[i]);
+      tracks[i].setAttribute('aria-valuetext', ints[i] + ' por cento');
+      if (segs.length){
+        segs[i].style.flex = `0 0 ${v}%`;
+        segs[i].style.display = v < 0.5 ? 'none' : '';
+      }
+    });
+    soma.textContent = ints.reduce((a, b) => a + b, 0) + '%';
+  }
+  function valorEm(track, clientX){
+    const r = track.getBoundingClientRect();
+    return (clientX - r.left) / r.width * 100;
+  }
+  const solturas = [];
+  tracks.forEach((track, i) => {
+    let ratio = null;
+    const mover = e => { if (ratio !== null) aplicar(i, valorEm(track, e.clientX), ratio); };
+    const soltar = e => {
+      ratio = null; track.classList.remove('dragging');
+      if (track.hasPointerCapture(e.pointerId)) track.releasePointerCapture(e.pointerId);
+    };
+    const pegar = e => {
+      if (travado) return;
+      const [j, k] = [0, 1, 2].filter(x => x !== i);
+      const s = vals[j] + vals[k];
+      ratio = s > 0 ? vals[j] / s : 0.5;
+      track.classList.add('dragging'); track.setPointerCapture(e.pointerId); track.focus();
+      aplicar(i, valorEm(track, e.clientX), ratio);
+      e.preventDefault();
+    };
+    track.addEventListener('pointerdown', pegar);
+    track.addEventListener('pointermove', mover);
+    track.addEventListener('pointerup', soltar);
+    track.addEventListener('pointercancel', soltar);
+    track.addEventListener('keydown', e => {
+      if (travado) return;
+      const passo = e.shiftKey ? 5 : 1;
+      let v = null;
+      if (e.key === 'ArrowRight' || e.key === 'ArrowUp')   v = vals[i] + passo;
+      if (e.key === 'ArrowLeft'  || e.key === 'ArrowDown') v = vals[i] - passo;
+      if (e.key === 'PageUp')   v = vals[i] + 10;
+      if (e.key === 'PageDown') v = vals[i] - 10;
+      if (e.key === 'Home') v = 0;
+      if (e.key === 'End')  v = 100;
+      if (v === null) return;
+      e.preventDefault(); aplicar(i, v, null);
+    });
+    solturas.push(() => {
+      track.removeEventListener('pointerdown', pegar);
+      track.removeEventListener('pointermove', mover);
+      track.removeEventListener('pointerup', soltar);
+      track.removeEventListener('pointercancel', soltar);
+    });
+  });
+  const btnReset = host.querySelector('[data-reset]');
+  if (btnReset) btnReset.addEventListener('click', () => {
+    vals = inicial.slice(); pintar(); if (cfg.aoMudar) cfg.aoMudar(vals.slice());
+  });
+  pintar();
+  return {
+    valores: () => vals.slice(),
+    definir(v){ vals = normalizarPP(v); pintar(); },
+    travar(b){
+      travado = !!b;
+      tracks.forEach(t => { t.style.opacity = travado ? .75 : 1; t.tabIndex = travado ? -1 : 0; });
+      const rb = host.querySelector('[data-reset]'); if (rb) rb.hidden = travado;
+    },
+    destruir(){ solturas.forEach(f => f()); host.innerHTML = ''; }
+  };
+}
+
+/* ---------- Monte Carlo no navegador (Etapa 4) ---------------
+   Port de simulate_remainder (elo.py): mesmo Elo padrao no update,
+   mesmo bootstrap de placar, mesmos criterios de desempate. `forcadas`
+   troca a FONTE do sorteio de resultado em jogos especificos pelas
+   probabilidades do usuario -- o update de Elo continua identico.
+   Hot loop com typed arrays e sem alocacao: medido em ~90ms pra 10 mil
+   simulacoes num celular real (ver CLAUDE.md antes de tocar aqui). */
+function ppMulberry32(a){
+  return function(){
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+let PP_POOLS = null;
+function ppAchatarPool(pool){
+  const a = new Int32Array(pool.length * 2);
+  for (let i = 0; i < pool.length; i++){ a[2*i] = pool[i][0]; a[2*i+1] = pool[i][1]; }
+  return a;
+}
+function ppSimular(nSims, semente, forcadas){
+  const M = DATA.palpite.mc;
+  if (!PP_POOLS) PP_POOLS = {
+    C: ppAchatarPool(M.pool_casa), E: ppAchatarPool(M.pool_empate), F: ppAchatarPool(M.pool_fora)
+  };
+  const nT = M.times.length, nJ = M.jogos.length;
+  const rnd = ppMulberry32(semente);
+  const rat = new Float64Array(nSims * nT);
+  const pts = new Int32Array(nSims * nT);
+  const vit = new Int32Array(nSims * nT);
+  const sg  = new Int32Array(nSims * nT);
+  const gp  = new Int32Array(nSims * nT);
+
+  for (let s = 0; s < nSims; s++){
+    const o = s * nT;
+    for (let i = 0; i < nT; i++){
+      const t = M.times[i];
+      rat[o+i] = t.rating; pts[o+i] = t.pts; vit[o+i] = t.vit; sg[o+i] = t.sg; gp[o+i] = t.gp;
+    }
+  }
+
+  for (let j = 0; j < nJ; j++){
+    const hi = M.jogos[j][0], ai = M.jogos[j][1], mid = M.jogos[j][2];
+    const forc = forcadas ? forcadas[mid] : null;
+    for (let s = 0; s < nSims; s++){
+      const o = s * nT, h = o + hi, a = o + ai;
+      const rh = rat[h], ra = rat[a];
+      let pH, pE;
+      if (forc){ pH = forc[0]; pE = forc[1]; }
+      else {
+        const th = Math.pow(10, (rh + HFA) / 400), ta = Math.pow(10, ra / 400);
+        const dr = NU * Math.sqrt(th * ta), den = th + ta + dr;
+        pH = th / den; pE = dr / den;
+      }
+      const u = rnd();
+      let sH, pool;
+      if (u < pH)          { sH = 1.0; pool = PP_POOLS.C; }
+      else if (u < pH + pE){ sH = 0.5; pool = PP_POOLS.E; }
+      else                 { sH = 0.0; pool = PP_POOLS.F; }
+      const pick = (rnd() * (pool.length >> 1)) | 0;
+      const hg = pool[2*pick], ag = pool[2*pick+1];
+      pts[h] += sH === 1 ? 3 : sH === 0.5 ? 1 : 0;
+      pts[a] += sH === 0 ? 3 : sH === 0.5 ? 1 : 0;
+      if (sH === 1) vit[h]++; else if (sH === 0) vit[a]++;
+      sg[h] += hg - ag; sg[a] += ag - hg;
+      gp[h] += hg;      gp[a] += ag;
+      const eH = 1 / (1 + Math.pow(10, -((rh + HFA - ra) / 400)));
+      const d = ELO_K * (sH - eH);
+      rat[h] = rh + d; rat[a] = ra - d;
+    }
+  }
+
+  const titulo = new Int32Array(nT), g4 = new Int32Array(nT), z4 = new Int32Array(nT);
+  const score = new Float64Array(nT), ordem = new Int32Array(nT);
+  for (let s = 0; s < nSims; s++){
+    const o = s * nT;
+    for (let i = 0; i < nT; i++){
+      score[i] = pts[o+i] * 1e9 + vit[o+i] * 1e6 + (sg[o+i] + 1000) * 1e3 + gp[o+i];
+      ordem[i] = i;
+    }
+    for (let a = 1; a < nT; a++){
+      const iv = ordem[a], sv = score[iv];
+      let b = a - 1;
+      while (b >= 0 && score[ordem[b]] < sv){ ordem[b+1] = ordem[b]; b--; }
+      ordem[b+1] = iv;
+    }
+    for (let r = 0; r < nT; r++){
+      const i = ordem[r];
+      if (r === 0) titulo[i]++;
+      if (r < 4) g4[i]++;
+      if (r >= nT - 4) z4[i]++;
+    }
+  }
+  return M.times.map((t, i) => ({
+    id: t.id, nome: t.nome, titulo: titulo[i] / nSims, g4: g4[i] / nSims, z4: z4[i] / nSims
+  }));
+}
+
+/* ---------- estado e utilidades comuns aos dois modos --------- */
+const PP_CHAVE = 'fds_palpite_proxima_v1';
+const PP_JANELA_POOL = 8;   // mesma janela de PALPITE_JANELA_POOL em build_site.py
+const PP_RUIDO = 0.015;     // piso de ruido entre duas rodadas de MC (medido em mc-benchmark)
+const PP_IDX = {C: 0, E: 1, F: 2};
+let ppModo = 'passadas';
+let ppSeqPassadas = null, ppSeqProxima = null;
+
+function ppQuadrado(p){ return p >= 50 ? '🟩' : p >= 25 ? '🟨' : '🟥'; }
+function ppFmtData(iso){ return iso.slice(8, 10) + '/' + iso.slice(5, 7); }
+function ppLer(){ try { return JSON.parse(localStorage.getItem(PP_CHAVE) || 'null'); } catch (e) { return null; } }
+function ppGravar(o){ try { localStorage.setItem(PP_CHAVE, JSON.stringify(o)); } catch (e) {} }
+
+function renderPalpite(){
+  ppPintar();
+}
+function ppPintar(){
+  if (ppModo === 'passadas') ppMontarPassadas($('#palpiteBody'));
+  else ppMontarProxima($('#palpiteBody'));
+}
+
+/* ---------- Modo 1: rodadas passadas, resolucao imediata ------ */
+function ppSemente(txt){
+  let h = 2166136261;
+  for (const c of txt) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+function ppSorteia(pool, sem, n){
+  let s = sem;
+  const rnd = () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; };
+  const ordem = pool.map((_, i) => i);
+  for (let i = ordem.length - 1; i > 0; i--){
+    const j = Math.floor(rnd() * (i + 1));
+    [ordem[i], ordem[j]] = [ordem[j], ordem[i]];
+  }
+  return ordem.slice(0, n).map(i => pool[i]);
+}
+function ppMontarPassadas(host){
+  const hoje = new Date().toLocaleDateString('sv-SE');
+  const jogos = ppSorteia(DATA.palpite.pool, ppSemente(hoje), 4);
+  ppSeqPassadas = {jogos, atual: 0, respostas: [], barras: null, timer: null, dia: hoje};
+  host.innerHTML = `
+    <div class="card">
+      <div class="pp-passos"><div class="pp-pontos" id="ppPontos1"></div>
+        <span class="qual" id="ppQual1"></span><span class="placar" id="ppPlacar1"></span></div>
+      <div id="ppPalco1"></div>
+      <div id="ppAcao1" style="margin-top:var(--s5)"></div>
+      <div id="ppRevela1"></div>
+    </div>
+    <div class="card" id="ppFim1" hidden style="margin-top:var(--s5)"></div>
+    <p class="note" style="margin-top:var(--s4)">Quatro jogos sorteados a partir da data de hoje —
+      todo mundo que jogar hoje pega os mesmos quatro. Sua pontuação é a probabilidade que você deu
+      ao que aconteceu: deu 52% à vitória do mandante e o mandante venceu, são 52 pontos. O modelo
+      joga com a mesma régua.</p>`;
+  ppPassosPintar1();
+  ppMontarJogo1();
+}
+function ppPassosPintar1(){
+  const st = ppSeqPassadas;
+  $('#ppPontos1').innerHTML = st.jogos.map((_, i) =>
+    `<span class="pp-pt ${i < st.atual ? 'feito' : i === st.atual ? 'atual' : ''}"></span>`).join('');
+  $('#ppQual1').textContent = st.atual < st.jogos.length ? `Jogo ${st.atual + 1} de ${st.jogos.length}` : '';
+  const pv = st.respostas.reduce((a, r) => a + r.pv, 0), pm = st.respostas.reduce((a, r) => a + r.pm, 0);
+  $('#ppPlacar1').innerHTML = st.respostas.length ? `Você <b>${pv}</b> · modelo <b>${pm}</b>` : '';
+}
+function ppMontarJogo1(){
+  const st = ppSeqPassadas;
+  clearTimeout(st.timer);
+  if (st.barras) st.barras.destruir();
+  const j = st.jogos[st.atual];
+  ppPassosPintar1();
+  $('#ppRevela1').innerHTML = '';
+  st.barras = criarBarras($('#ppPalco1'), {
+    jogo: `${esc(j.casa)} <span style="color:var(--ink-4);font-size:.7em">×</span> ${esc(j.fora)}`,
+    meta: `Rodada ${j.md} · ${ppFmtData(j.data)}`,
+    rotulos: [`Vitória do ${j.casa}`, 'Empate', `Vitória do ${j.fora}`],
+    valores: [100 / 3, 100 / 3, 100 / 3]
+  });
+  $('#ppAcao1').innerHTML = '<button class="btn solid" type="button" id="ppOk1">Confirmar palpite</button>';
+  $('#ppOk1').addEventListener('click', ppConfirmar1);
+}
+function ppConfirmar1(){
+  const st = ppSeqPassadas, j = st.jogos[st.atual];
+  const v = st.barras.valores();
+  const m = confronto(j.rc, j.rf).map(x => x * 100);
+  const i = PP_IDX[j.res];
+  const pv = Math.round(v[i]), pm = Math.round(m[i]);
+  st.barras.travar(true);
+  $('#ppAcao1').innerHTML = '';
+  st.respostas.push({jogo: j, v, m, pv, pm});
+
+  const nomes = [`Vitória do ${j.casa}`, 'Empate', `Vitória do ${j.fora}`];
+  const dif = pv - pm;
+  const classe = pv >= 50 ? 'ok' : pv >= 25 ? 'meio' : 'ruim';
+  const verd = dif > 3 ? `Você foi <b>${dif} pontos</b> melhor que o modelo neste jogo.`
+             : dif < -3 ? `O modelo foi <b>${-dif} pontos</b> melhor que você neste jogo.`
+             : `Você e o modelo ficaram praticamente empatados aqui.`;
+
+  $('#ppRevela1').innerHTML = `
+    <div class="pp-revela">
+      <div class="pp-real">
+        <span class="pl">${esc(j.casa)} ${j.gc}<span style="color:var(--ink-4)">–</span>${j.gf} ${esc(j.fora)}</span>
+        <span class="qt">${nomes[i]}</span>
+      </div>
+      <div class="pp-cmp">
+        <div class="rot"></div>
+        ${nomes.map((n, k) => `<div class="cab ${k === i ? 'venc' : ''}">${esc(n)}</div>`).join('')}
+        <div class="rot">Você</div>
+        ${v.map((x, k) => `<div class="${k === i ? 'venc' : ''}"><span class="vv"
+           style="color:${k === i ? 'var(--accent)' : 'var(--ink-2)'}">${Math.round(x)}%</span>
+           ${k === i ? '<div class="chip">aconteceu</div>' : ''}</div>`).join('')}
+        <div class="rot">Modelo</div>
+        ${m.map((x, k) => `<div class="${k === i ? 'venc' : ''}"><span class="vv"
+           style="color:var(--ink-3)">${Math.round(x)}%</span></div>`).join('')}
+      </div>
+      <div class="pp-veredito" style="border-left:3px solid ${classe === 'ok' ? 'var(--accent)' : classe === 'meio' ? 'var(--amber)' : 'var(--red)'}">
+        <span class="big" style="color:${classe === 'ok' ? 'var(--accent)' : classe === 'meio' ? 'var(--amber)' : 'var(--red)'}">+${pv}</span>
+        <span class="tx">Você deu <b>${pv}%</b> ao que aconteceu; o modelo dava <b>${pm}%</b>.<br>${verd}</span>
+      </div>
+      <div class="pp-avanca">
+        <div class="pp-tbar"><i id="ppTb1"></i></div>
+        <button class="btn" type="button" id="ppNext1">${st.atual + 1 < st.jogos.length ? 'Próximo jogo' : 'Ver o resumo'}</button>
+      </div>
+    </div>`;
+  ppPassosPintar1();
+  $('#ppNext1').addEventListener('click', ppAvancar1);
+  requestAnimationFrame(() => { const tb = $('#ppTb1'); if (tb) tb.style.width = '100%'; });
+  if (!REDUCED) st.timer = setTimeout(ppAvancar1, 4200);
+}
+function ppAvancar1(){
+  const st = ppSeqPassadas;
+  clearTimeout(st.timer);
+  st.atual++;
+  if (st.atual < st.jogos.length) ppMontarJogo1(); else ppTerminar1();
+}
+function ppTerminar1(){
+  const st = ppSeqPassadas;
+  if (st.barras) { st.barras.destruir(); st.barras = null; }
+  $('#ppAcao1').innerHTML = ''; $('#ppRevela1').innerHTML = '';
+  ppPassosPintar1();
+
+  const pv = st.respostas.reduce((a, r) => a + r.pv, 0), pm = st.respostas.reduce((a, r) => a + r.pm, 0);
+  const grid = st.respostas.map(r => ppQuadrado(r.pv)).join('');
+  const dif = pv - pm;
+  const titulo = dif > 0 ? 'Você bateu o modelo' : dif < 0 ? 'O modelo levou' : 'Empate com o modelo';
+  const texto = `Seu palpite · Fora da Súmula\n${st.respostas.length} jogos de ${ppFmtData(st.dia)}\n\n${grid}\nVocê ${pv} · modelo ${pm}\n\nforadasumula.com.br`;
+
+  const fim = $('#ppFim1');
+  fim.hidden = false;
+  fim.innerHTML = `
+    <div class="eyebrow"><span>Resumo</span><span class="dv"></span><span>${st.respostas.length} jogos</span></div>
+    <h3 style="font-size:clamp(22px,3.8vw,28px);font-family:var(--f-serif);font-weight:400;margin-top:var(--s2)">${titulo}</h3>
+    <div class="pp-total">
+      <div class="pp-tot voce"><div class="k">Você</div><div class="v">${pv}</div></div>
+      <div class="pp-tot mod"><div class="k">Modelo</div><div class="v">${pm}</div></div>
+    </div>
+    <div class="pp-grid">${grid}</div>
+    <div class="pp-lista">
+      ${st.respostas.map(r => `<div class="pp-lin">
+        <span class="em">${ppQuadrado(r.pv)}</span>
+        <span class="jg">${esc(r.jogo.casa)} ${r.jogo.gc}–${r.jogo.gf} ${esc(r.jogo.fora)}</span>
+        <span class="vc">${r.pv}</span><span class="md">${r.pm}</span></div>`).join('')}
+    </div>
+    <div class="btnrow" style="margin-top:var(--s5)">
+      <button class="btn solid" type="button" id="ppShare1">Copiar resultado</button>
+      <button class="btn" type="button" id="ppVer1">Ver o texto</button>
+    </div>
+    <textarea class="pp-saida" id="ppSaida1" rows="7" readonly hidden>${esc(texto)}</textarea>
+    <p class="note" style="margin-top:var(--s4)">Nada disso sai do seu navegador: o resumo não é
+      salvo em lugar nenhum, e o texto acima só existe se você copiar.</p>`;
+
+  $('#ppShare1').addEventListener('click', async () => {
+    const b = $('#ppShare1');
+    try { await navigator.clipboard.writeText(texto); b.textContent = 'Copiado'; }
+    catch (e) { $('#ppSaida1').hidden = false; $('#ppSaida1').select(); b.textContent = 'Copie do campo abaixo'; }
+    setTimeout(() => { b.textContent = 'Copiar resultado'; }, 2400);
+  });
+  $('#ppVer1').addEventListener('click', () => {
+    const s = $('#ppSaida1'); s.hidden = !s.hidden; if (!s.hidden) s.select();
+  });
+}
+
+/* ---------- Modo 2: próxima rodada, resolução adiada ----------- */
+function ppMontarProxima(host){
+  /* presenca de palpite salvo decide o ramo -- NUNCA o numero da rodada
+     "proxima" atual do payload: se o usuario salvou pra rodada 27 e o
+     site ja avancou pra 28 (rodada 27 foi jogada de verdade), o salvo
+     ainda precisa resolver contra o placar da 27 antes de sumir. So
+     comecar rodada nova quando nao ha NADA salvo (primeira visita, ou
+     depois de "recomecar"). */
+  const salvo = ppLer();
+  if (salvo){ ppResultado2(host, salvo); return; }
+
+  if (!DATA.palpite.proxima.length){
+    host.innerHTML = `<div class="card"><p class="note">Não há jogos agendados no momento —
+      a temporada pode ter terminado ou o calendário da próxima rodada ainda não foi divulgado.</p></div>`;
+    return;
+  }
+  ppSeqProxima = {jogos: DATA.palpite.proxima, atual: 0, respostas: [], barras: null};
+  host.innerHTML = `
+    <div class="card">
+      <div class="pp-passos"><div class="pp-pontos" id="ppPontos2"></div>
+        <span class="qual" id="ppQual2"></span></div>
+      <div id="ppPalco2"></div>
+      <div id="ppAcao2" style="margin-top:var(--s5)"></div>
+    </div>
+    <p class="note" style="margin-top:var(--s4)">Sem resultado pra revelar ainda: depois de cada
+      jogo você vê só o que o Davidson dava, e segue. No fim, os dez palpites ficam guardados
+      neste aparelho até a rodada acontecer de verdade.</p>`;
+  ppPassosPintar2();
+  ppMontarJogo2();
+}
+function ppPassosPintar2(){
+  const st = ppSeqProxima;
+  $('#ppPontos2').innerHTML = st.jogos.map((_, i) =>
+    `<span class="pp-pt ${i < st.atual ? 'feito' : i === st.atual ? 'atual' : ''}"></span>`).join('');
+  $('#ppQual2').textContent = `Jogo ${Math.min(st.atual + 1, st.jogos.length)} de ${st.jogos.length}`;
+}
+function ppMontarJogo2(){
+  const st = ppSeqProxima;
+  if (st.barras) st.barras.destruir();
+  const j = st.jogos[st.atual];
+  ppPassosPintar2();
+  st.barras = criarBarras($('#ppPalco2'), {
+    jogo: `${esc(j.casa)} <span style="color:var(--ink-4);font-size:.7em">×</span> ${esc(j.fora)}`,
+    meta: `Rodada ${j.md} · ${ppFmtData(j.data)}`,
+    rotulos: [`Vitória do ${j.casa}`, 'Empate', `Vitória do ${j.fora}`],
+    valores: [100 / 3, 100 / 3, 100 / 3]
+  });
+  $('#ppAcao2').innerHTML = `<button class="btn solid" type="button" id="ppOk2">${
+    st.atual + 1 < st.jogos.length ? 'Confirmar e seguir' : 'Guardar os palpites'}</button>`;
+  $('#ppOk2').addEventListener('click', () => {
+    const v = st.barras.valores();
+    st.respostas.push({id: j.id, casa: j.casa, fora: j.fora, data: j.data, rc: j.rc, rf: j.rf, v});
+    st.atual++;
+    if (st.atual < st.jogos.length) ppMontarJogo2();
+    else {
+      st.barras.destruir(); st.barras = null;
+      ppGravar({v: 1, md: st.jogos[0].md, salvo_em: new Date().toLocaleDateString('sv-SE'), palpites: st.respostas});
+      ppPintar();
+    }
+  });
+}
+function ppSituacao(salvo){
+  const achados = salvo.palpites.filter(p => DATA.palpite.pool.some(g => g.id === p.id));
+  if (achados.length === salvo.palpites.length) return 'pronto';
+  if (DATA.current_round > salvo.md + PP_JANELA_POOL) return 'expirado';
+  return 'aguardando';
+}
+function ppResultado2(host, salvo){
+  const st = ppSituacao(salvo);
+  if (st === 'pronto') { ppResolvido2(host, salvo); return; }
+
+  const expirado = st === 'expirado';
+  const podeSimular = !expirado && salvo.palpites.every(p => DATA.palpite.mc.jogos.some(j => j[2] === p.id));
+  host.innerHTML = `
+    <div class="card">
+      <span class="badge ${expirado ? 'bad' : 'warn'}">${expirado ? 'Expirado' : 'Aguardando a rodada'}</span>
+      <h3 style="font-family:var(--f-serif);font-weight:400;font-size:clamp(20px,3.4vw,26px);margin-top:var(--s3)">
+        Rodada ${salvo.md}</h3>
+      <p class="note" style="margin-top:var(--s2)">${expirado
+        ? `Essa rodada saiu da janela de ${PP_JANELA_POOL} rodadas do pool de jogos passados —
+           não há mais como buscar o placar dela aqui.`
+        : `Palpites salvos em ${ppFmtData(salvo.salvo_em)}. Quando o site atualizar com os placares
+           da rodada, esta tela vira o resumo de acertos sozinha.`}</p>
+      <div class="pp-lista" style="margin-top:var(--s4)">
+        ${salvo.palpites.map(p => {
+          const m = confronto(p.rc, p.rf).map(x => Math.round(x * 100));
+          const v = p.v.map(Math.round);
+          return `<div class="pp-lin simples">
+            <span class="jg">${esc(p.casa)} <span style="color:var(--ink-4)">×</span> ${esc(p.fora)}</span>
+            <span class="tri"><b>${v.join('/')}</b> · modelo ${m.join('/')}</span></div>`;
+        }).join('')}
+      </div>
+      ${podeSimular ? `<div class="btnrow" style="margin-top:var(--s5)">
+        <button class="btn solid" type="button" id="ppVerImpacto">Ver o impacto na tabela</button>
+      </div>` : ''}
+      <div class="btnrow" style="margin-top:${podeSimular ? 'var(--s3)' : 'var(--s5)'}">
+        <button class="btn ghost" type="button" id="ppRefazer2">Refazer os palpites</button>
+      </div>
+    </div>
+    <div id="ppImpacto2" style="margin-top:var(--s5)"></div>`;
+
+  if (podeSimular) $('#ppVerImpacto').addEventListener('click', () => ppRodarImpacto(salvo.palpites, $('#ppImpacto2')));
+  $('#ppRefazer2').addEventListener('click', () => { try { localStorage.removeItem(PP_CHAVE); } catch (e) {} ppPintar(); });
+}
+function ppResolvido2(host, salvo){
+  const linhas = salvo.palpites.map(p => {
+    const g = DATA.palpite.pool.find(x => x.id === p.id);
+    const m = confronto(p.rc, p.rf).map(x => x * 100);
+    const i = PP_IDX[g.res];
+    return {p, g, pv: Math.round(p.v[i]), pm: Math.round(m[i])};
+  });
+  const pv = linhas.reduce((a, l) => a + l.pv, 0), pm = linhas.reduce((a, l) => a + l.pm, 0);
+  const grid = linhas.map(l => ppQuadrado(l.pv)).join('');
+  const dif = pv - pm;
+  const titulo = dif > 0 ? 'Você bateu o modelo' : dif < 0 ? 'O modelo levou' : 'Empate com o modelo';
+  const texto = `Seu palpite · Fora da Súmula\nRodada ${salvo.md} · ${linhas.length} jogos\n\n${grid.slice(0, 10)}\n${grid.slice(10)}\nVocê ${pv} · modelo ${pm}\n\nforadasumula.com.br`;
+
+  host.innerHTML = `
+    <div class="card">
+      <span class="badge good">Rodada resolvida</span>
+      <h3 style="font-family:var(--f-serif);font-weight:400;font-size:clamp(22px,3.8vw,28px);margin-top:var(--s3)">${titulo}</h3>
+      <div class="pp-total">
+        <div class="pp-tot voce"><div class="k">Você</div><div class="v">${pv}</div></div>
+        <div class="pp-tot mod"><div class="k">Modelo</div><div class="v">${pm}</div></div>
+      </div>
+      <div class="pp-grid">${grid}</div>
+      <div class="pp-lista">
+        ${linhas.map(l => `<div class="pp-lin">
+          <span class="em">${ppQuadrado(l.pv)}</span>
+          <span class="jg">${esc(l.p.casa)} ${l.g.gc}–${l.g.gf} ${esc(l.p.fora)}</span>
+          <span class="vc">${l.pv}</span><span class="md">${l.pm}</span></div>`).join('')}
+      </div>
+      <div class="btnrow" style="margin-top:var(--s5)">
+        <button class="btn solid" type="button" id="ppShare2">Copiar resultado</button>
+        <button class="btn" type="button" id="ppVer2">Ver o texto</button>
+        <button class="btn ghost" type="button" id="ppRefazer2b">Recomeçar</button>
+      </div>
+      <textarea class="pp-saida" id="ppSaida2" rows="8" readonly hidden>${esc(texto)}</textarea>
+    </div>`;
+  $('#ppShare2').addEventListener('click', async () => {
+    const b = $('#ppShare2');
+    try { await navigator.clipboard.writeText(texto); b.textContent = 'Copiado'; }
+    catch (e) { $('#ppSaida2').hidden = false; $('#ppSaida2').select(); b.textContent = 'Copie do campo abaixo'; }
+    setTimeout(() => { b.textContent = 'Copiar resultado'; }, 2400);
+  });
+  $('#ppVer2').addEventListener('click', () => {
+    const s = $('#ppSaida2'); s.hidden = !s.hidden; if (!s.hidden) s.select();
+  });
+  $('#ppRefazer2b').addEventListener('click', () => { try { localStorage.removeItem(PP_CHAVE); } catch (e) {} ppPintar(); });
+}
+
+/* ---------- Etapa 4: impacto na tabela (usa DATA.palpite.mc) ---- */
+let ppMetrica = 'titulo';
+function ppRodarImpacto(palpites, out){
+  out.innerHTML = `<p class="note">Simulando ${NSIM.toLocaleString('pt-BR')} temporadas…</p>`;
+  requestAnimationFrame(() => setTimeout(() => {
+    const forcadas = {};
+    for (const p of palpites){
+      const t = p.v[0] + p.v[1] + p.v[2];
+      forcadas[p.id] = [p.v[0] / t, p.v[1] / t, p.v[2] / t];
+    }
+    const t0 = performance.now();
+    const depois = ppSimular(NSIM, 20260907, forcadas);
+    const ms = performance.now() - t0;
+    ppDesenharImpacto(out, depois, ms);
+  }, 10));
+}
+function ppDesenharImpacto(out, depois, ms){
+  const rot = {titulo: 'título', g4: 'G4', z4: 'Z4'};
+  const linhas = depois.map(d => {
+    const tk = String(d.id);
+    const a = T[tk] ? T[tk][ppMetrica][LAST] : 0;
+    return {id: d.id, nome: d.nome, a, d: d[ppMetrica]};
+  }).map(x => ({...x, delta: x.d - x.a})).sort((x, y) => y.delta - x.delta);
+
+  const mx = Math.max(...linhas.map(x => Math.abs(x.delta)), 0.01);
+  const forte = linhas.filter(x => Math.abs(x.delta) >= PP_RUIDO);
+  const sobe = linhas[0], desce = linhas[linhas.length - 1];
+  const seg = ms / 1000;
+
+  out.innerHTML = `
+    <div class="pp-aviso">
+      <span class="marca">Atenção</span>
+      <p>Isso não é o que o modelo prevê — é o que aconteceria SE a rodada saísse do seu jeito.</p>
+    </div>
+    <div class="pp-resumoSim" style="margin-top:var(--s5)">
+      <span><b>${NSIM.toLocaleString('pt-BR')}</b> simulações do restante da temporada em
+        <b>${ms < 100 ? 'menos de 1 décimo de segundo' : dec(seg, 1) + ' segundo'}</b></span>
+      <span>·</span><span>${Math.round(ms)} ms medidos neste aparelho</span>
+    </div>
+    <p class="note" style="margin-top:var(--s4)">${
+      Math.abs(sobe.delta) < PP_RUIDO && Math.abs(desce.delta) < PP_RUIDO
+      ? `Com esses palpites, <b>nenhum clube se moveu de forma distinguível do acaso</b>: sua rodada
+         bateu com o que o modelo já achava, e não muda o retrato da temporada.`
+      : `Quem mais ganha é o <b>${esc(sobe.nome)}</b> (${signed(sobe.delta * 100)} p.p. de ${rot[ppMetrica]});
+         quem mais perde é o <b>${esc(desce.nome)}</b> (${signed(desce.delta * 100)}).`}</p>
+
+    <div class="btnrow" style="margin:var(--s5) 0 var(--s4)">
+      <div class="seg" id="ppMetricaSeg" role="group" aria-label="Métrica">
+        <span class="thumb" aria-hidden="true"></span>
+        <button type="button" data-m="titulo" aria-pressed="${ppMetrica === 'titulo'}">Título</button>
+        <button type="button" data-m="g4" aria-pressed="${ppMetrica === 'g4'}">G4</button>
+        <button type="button" data-m="z4" aria-pressed="${ppMetrica === 'z4'}">Rebaixamento</button>
+      </div>
+    </div>
+
+    <div class="card" style="padding:var(--s3)">
+      <div class="rank" id="ppRankImpacto">
+        ${linhas.map(x => {
+          const up = x.delta >= 0, len = Math.abs(x.delta) / mx * 48, ruido = Math.abs(x.delta) < PP_RUIDO;
+          return `<div class="dline">
+            <span class="nm">${esc(x.nome)}</span>
+            <span class="vv" style="${ruido ? 'color:var(--ink-4);font-weight:500' : `color:${up ? 'var(--accent)' : 'var(--red)'}`}">${signed(x.delta * 100)}</span>
+            <span class="dbar"><span class="axis"></span>
+              <span class="b" style="${up ? 'left:50%' : 'right:50%'};background:${ruido ? 'var(--faint)' : up ? 'var(--accent)' : 'var(--red)'}" data-w="${len}%"></span>
+            </span></div>`;
+        }).join('')}
+      </div>
+    </div>
+    <p class="note" style="margin-top:var(--s4)">Barra cinza é variação <b>dentro do ruído</b> — abaixo
+      de 1,5 ponto percentual, a diferença não se distingue da aleatoriedade entre duas rodadas de
+      Monte Carlo. ${forte.length} clube${forte.length === 1 ? '' : 's'} se move${forte.length === 1 ? '' : 'm'}
+      acima desse piso.</p>`;
+
+  wireSeg($('#ppMetricaSeg'), d => { ppMetrica = d.m; ppDesenharImpacto(out, depois, ms); });
+  syncSeg($('#ppMetricaSeg'));
+  growBars($('#ppRankImpacto'));
+}
+
+/* ============================================================
    COMO FUNCIONA
    ============================================================ */
 function renderComo(){
@@ -1945,12 +2727,13 @@ const PAGES = [
   {id:'forca',   label:'Força',         short:'Força',   desc:'Quem está jogando mais'},
   {id:'sorte',   label:'Sorte',         short:'Sorte',   desc:'Acima ou abaixo do esperado'},
   {id:'zebras',  label:'Zebras',        short:'Zebras',  desc:'Os resultados mais improváveis'},
+  {id:'palpite', label:'Seu palpite',   short:'Palpite', desc:'Sua chance contra a do modelo'},
   {id:'como',    label:'Como funciona', short:'Modelo',  desc:'A metodologia em quatro passos'}
 ];
 const TABS = ['corrida', 'tabela', 'clubes', 'forca'];
 const RENDERERS = {
   corrida: renderCorrida, tabela: renderTabela, sorte: renderSorte, zebras: renderZebras,
-  clubes: renderClubes, time: renderTime, forca: renderForca, como: renderComo
+  clubes: renderClubes, time: renderTime, forca: renderForca, palpite: renderPalpite, como: renderComo
 };
 const RENDERED = new Set();
 
@@ -2049,6 +2832,7 @@ function init(){
 
   wireSeg($('#tblSeg'), d => { tblView = d.v; renderTabela(); });
   wireSeg($('#metricSeg'), d => { metric = d.m; paintClubes(false); });
+  wireSeg($('#palpiteSeg'), d => { ppModo = d.m; ppPintar(); });
 
   ['#clubList', '#sorteList', '#forcaRank', '#varList', '#changes'].forEach(wireTeamLinks);
   $('#tabelaEl').addEventListener('click', e => {

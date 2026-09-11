@@ -156,6 +156,34 @@ saldo de gols em casos raros de empate exato em pontos e vitórias fica
 menos preciso (a extremidade das goleadas fica sub-representada no
 saldo simulado).
 
+### `xpts_forca` (Elo) pode divergir forte de xP baseado em xG real
+
+`xpts_forca.parquet` mede sorte contra **força** (Elo+Davidson,
+rating pré-jogo), não contra **qualidade de chance** (xG) -- ver
+descrição do arquivo acima. Comparação pontual contra o xP público do
+DataFutebol/Opta (baseado em xG real), rodada 26/2026, a partir de um
+print de terceiros (viz "Data via BeGriffis | Viz by @DataFutebol"),
+líder com 53-54 pontos batendo com nossa rodada 26:
+
+| clube | pontos reais | xPTS Elo (nosso) | diferença Elo | xP público (xG, aprox.) | diferença xG |
+| --- | --- | --- | --- | --- | --- |
+| Athletico-PR | 45 | 32.35 | **+12.65** | ~44 | **+1** |
+| Coritiba | 37 | 28.73 | +8.27 | ~31 | +6 |
+
+Coritiba: os dois modelos concordam na direção e na magnitude (time
+supera o esperado nos dois). Athletico-PR: divergência forte -- o
+xG público vê o time quase no ponto certo (+1), enquanto o Elo vê uma
+sobreperformance grande (+12.65). Leitura mais provável: o rating de
+Elo do Athletico-PR ainda carrega força de temporadas/rodadas
+anteriores e não capturou uma melhora recente do time -- Elo reage com
+atraso a mudanças de patamar, xG por jogo não.
+
+**Não é bug** -- é a limitação já documentada acima (Elo mede força,
+não qualidade de chance) se manifestando de forma extrema num caso
+concreto. Guardado aqui como referência caso a métrica seja
+questionada publicamente (ex.: alguém comparar os dois números e achar
+que o site "errou" a conta do Athletico-PR).
+
 ### `status_raw` da football-data.org é inconsistente
 
 Parte das partidas com placar preenchido vem com `status` como uma

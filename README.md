@@ -189,6 +189,26 @@ anúncio em cima disso -- é o que separa uso tolerado de uso comercial.
 
 O limite de 10 requests/minuto existe por um motivo. Não o contorne.
 
+## Contribuindo
+
+Licença MIT (ver `LICENSE`) -- fique à vontade pra abrir issue ou PR.
+
+Pra rodar local, siga "Ordem de execução" acima (passos 1-6). Depois
+de mudar algo, rode o trecho relevante do pipeline (`ingest.py` →
+`elo.py` → `derived.py` → `build_site.py`, nessa ordem -- `derived.py`
+lê o parquet que `elo.py` gera) e confira o `docs/index.html` resultante
+antes de abrir o PR. Leia o `CLAUDE.md` antes: ele lista decisões que já
+foram tentadas e revertidas (bypass de anti-bot, fontes de dados
+descartadas, bugs reais já corrigidos) pra não repetir o mesmo caminho.
+
+K=20, HFA=65 e ν=0.74 (Davidson) não são valores definitivos -- foram
+escolhidos por robustez num grid search, documentados com o raciocínio
+em `CLAUDE.md`. Proponha recalibração à vontade, mas venha com
+justificativa: rode `src/calibrate_elo.py` e `src/validate_elo.py` e
+mostre o antes/depois no PR. Se `validate_elo.py` mudar de resultado,
+atualize os dois lugares que citam o número (ver a regra em
+`CLAUDE.md`) no mesmo commit.
+
 ## Estrutura
 
 ```text

@@ -72,6 +72,59 @@ busca, não API), Big Balls Data (não cobre Brasil), StatsHub
 por módulo nenhum. Removidos. Não recriar: não existe pipeline de
 chute/xG, e constante órfã em `config.py` só faz parecer que existe.
 
+## Fonte histórica avaliada e adiada: openfootball/south-america
+
+Avaliado em 2026-09-11, **não integrado**. Objetivo era saber se
+vale estender o histórico do Elo antes de 2023 (a football-data.org
+bloqueia 2020-2022 no plano grátis) usando `brazil/2020_br1.txt` do
+[openfootball/south-america](https://github.com/openfootball/south-america)
+— formato `.txt` próprio (não é o `football.json` das ligas
+europeias), 380 partidas de 2020 com placar completo, pasta do
+Brasil atualizada semanalmente (não é repo parado).
+
+**Testes rodados** (fora do pipeline, script descartável — nada
+disso está commitado como módulo):
+
+1. *"5º split"* — 20 jogos de 2020 colhidos à mão, avaliados com
+   rating aquecido em 2023-2025 (mesma lógica leave-one-out do
+   `calibrate_elo.py`). log-loss 1.0513 vs. média oficial dos 3
+   splits 1.0308 ± 0.0125 (desvio já documentado: 0.0184) — ficou
+   **fora** da faixa, mas o teste é confundido: rating de 2023-2025
+   não é uma boa proxy da força dos times *em 2020* (elenco troca
+   muito em 3-5 anos), então a diferença pode ser só "time mudou de
+   força", não "a liga mudou de padrão". Amostra de 20 jogos também
+   é pequena demais pra separar as duas hipóteses.
+2. *Walk-forward dentro da própria temporada* — as 380 partidas de
+   2020 completas, rating começando flat em 1500 **sem nenhuma
+   mistura com rating de 2023+** (isola o confundidor do teste 1).
+   Cortando a primeira metade (efeito de "chute inicial" com rating
+   ainda não convergido, o mesmo problema que qualquer split tem no
+   início) e olhando só o returno (jogos 191-380, rating já rodou
+   190 partidas): log-loss **1.0358** (diferença de +0.0050 sobre a
+   média oficial — **dentro** da faixa de ruído de 0.0184) e taxa de
+   empate prevista 26.3% vs. real 25.8% (praticamente em cima). Com
+   a temporada inteira incluindo o chute inicial: log-loss 1.0548
+   (+0.0240, fora da faixa — mas isso é viés de aquecimento, não
+   sinal de mudança de padrão).
+
+**Conclusão do teste 2 (o mais limpo): o modelo generaliza bem pra
+2020** uma vez removido o viés de aquecimento — não há sinal de que
+o Brasileirão mudou de padrão (mais empate, mando diferente) entre
+2020 e 2023-2025 a ponto de justificar recalibração.
+
+**Decisão: não escrever o parser do `.txt` nem o mapa de
+reconciliação de nome→`team_id` agora**, mesmo com o resultado
+limpo. O risco real não é se o modelo generaliza (já testado, gerou
+não) — é o mapa nome→`team_id` feito à mão errando **em silêncio**:
+fundir dois clubes homônimos, perder um rebranding de patrocínio
+(ex.: "Red Bull Bragantino" vs. o nome que a football-data.org usa
+hoje), ou um trema/acento divergente que quebra o join sem lançar
+erro nenhum. Validar essa reconciliação direito é um projeto à
+parte, não uma tarde de trabalho, e só compensa se o site crescer a
+ponto de precisar de calibração mais robusta de verdade — não por
+curiosidade acadêmica de saber se generaliza. Item de backlog no
+`README.md` ("Histórico pré-2023 via openfootball/south-america").
+
 ## Calibração do modelo (não recalibrar sem motivo)
 
 K=20, HFA=65, ν(Davidson)=0.7404522613065327 — escolhidos por

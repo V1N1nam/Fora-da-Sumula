@@ -176,6 +176,12 @@ avisa no log -- pode ser sinal de mudança de comportamento da API.
   ou similar) em vez de fatiar em baldes fixos por faixa de força.
   Recupera a correlação entre desequilíbrio de força e tamanho da
   goleada sem esvaziar a amostra em baldes pequenos.
+- **Histórico pré-2023 via `openfootball/south-america`** (não
+  implementado, avaliado em 2026-09-11 — ver `CLAUDE.md`). Testes
+  de log-loss mostraram que o modelo generaliza bem pra 2020, mas o
+  trabalho real (parser do `.txt` + reconciliação manual de
+  nome→`team_id` sem erro silencioso) só compensa se o site crescer
+  a ponto de precisar de calibração mais robusta.
 
 ## Sobre a fonte
 

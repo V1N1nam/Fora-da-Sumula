@@ -446,6 +446,12 @@ table.tbl tr.edge td{border-bottom:1px solid var(--line-2);box-shadow:inset 0 -1
 .pb-track.dragging .pb-fill,.pb-track.dragging .pb-knob{transition:none}
 .pb-track:hover .pb-fill{filter:brightness(1.06)}
 .pb-track:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+.pb-track.readonly{cursor:default}
+.pb-track.readonly .pb-knob{display:none}
+.pb-track.readonly:hover .pb-fill{filter:none}
+.pb-track.capped .pb-knob{box-shadow:0 0 0 3px var(--surface),0 0 0 5px var(--ink-3)}
+.pb-track.capped{animation:pb-capped .22s var(--ease)}
+@keyframes pb-capped{0%,100%{transform:translateX(0)}30%{transform:translateX(-2px)}60%{transform:translateX(2px)}}
 .pb-foot{display:flex;align-items:center;justify-content:space-between;gap:var(--s3);
   flex-wrap:wrap;margin-top:var(--s5);padding-top:var(--s4);border-top:1px solid var(--line)}
 .pb-soma{font-size:12px;color:var(--ink-3)}
@@ -1977,14 +1983,21 @@ function h2hBlock(hk, ak){
    ============================================================ */
 
 /* barras interativas: tres valores que somam sempre 100.
-   Componente generico, sem logica de jogo -- so reflete `aoMudar`. */
+   Vitória (i=0) e Derrota (i=2) sao arrastadas direto e de forma
+   independente; Empate (i=1) nunca e arrastada, e so o resto
+   (100 - vitoria - derrota). A soma de vitoria+derrota trava em
+   100 -- ao encostar no teto imposto pela outra barra, a que esta
+   sendo arrastada simplesmente para de crescer (nao empurra a
+   outra pra baixo). Componente generico, sem logica de jogo --
+   so reflete `aoMudar`. */
 function criarBarras(host, opts){
   const cfg = Object.assign({
     rotulos: ['Vitória do mandante', 'Empate', 'Vitória do visitante'],
     valores: null, jogo: '', meta: '', aoMudar: null, resumo: true, reiniciar: true
   }, opts || {});
   const CLS = ['h', 'd', 'a'];
-  let vals = normalizarPP(cfg.valores || [100 / 3, 100 / 3, 100 / 3]);
+  const ARRASTAVEIS = [0, 2]; /* indice 1 (empate) e sempre o resto */
+  let vals = normalizarPP(cfg.valores || [0, 100, 0]);
   const inicial = vals.slice();
   let travado = false;
 
@@ -1993,15 +2006,19 @@ function criarBarras(host, opts){
        <div class="pb-meta">${cfg.meta}</div></div>` : '') +
     (cfg.resumo ? `<div class="pb-stack" aria-hidden="true">
        ${CLS.map(c => `<div class="pb-seg ${c}"></div>`).join('')}</div>` : '') +
-    `<div class="pb-rows">` + CLS.map((c, i) => `
+    `<div class="pb-rows">` + CLS.map((c, i) => {
+      const fixo = !ARRASTAVEIS.includes(i);
+      return `
       <div class="pb-row ${c}">
         <span class="pb-lab"><span class="pb-dot"></span>${cfg.rotulos[i]}</span>
         <span class="pb-val" data-val="${i}"></span>
-        <div class="pb-track" data-i="${i}" tabindex="0" role="slider"
-             aria-valuemin="0" aria-valuemax="100" aria-label="${cfg.rotulos[i]}">
+        <div class="pb-track${fixo ? ' readonly' : ''}" data-i="${i}"
+             tabindex="${fixo ? -1 : 0}" role="${fixo ? 'progressbar' : 'slider'}"
+             aria-valuemin="0" aria-valuemax="100" aria-label="${cfg.rotulos[i]}"
+             ${fixo ? 'aria-readonly="true"' : ''}>
           <div class="pb-fill"></div><div class="pb-knob"></div>
         </div>
-      </div>`).join('') + `</div>` +
+      </div>`; }).join('') + `</div>` +
     `<div class="pb-foot">
        <span class="pb-soma">Soma: <b data-soma>100%</b></span>
        ${cfg.reiniciar ? '<button class="btn ghost" type="button" data-reset>Reiniciar</button>' : ''}
@@ -2026,18 +2043,20 @@ function criarBarras(host, opts){
     for (let n = 0; n < falta; n++) base[ordem[n % 3].i]++;
     return base;
   }
-  /* `ratio` e a proporcao entre as duas barras passivas, congelada no
-     inicio do gesto -- se recalculasse a cada quadro, um arraste longo
-     faria as passivas derivarem sozinhas e o gesto ficaria irreversivel. */
-  function aplicar(i, v, ratio){
+  /* i e sempre 0 (vitoria) ou 2 (derrota). O teto de i e o que sobra
+     depois da outra barra arrastavel -- nao e um teto fixo de 100,
+     entao ele muda conforme a outra barra se move. Empate (1) nunca
+     e escrito aqui direto, so herda o resto. */
+  function aplicar(i, v){
+    const o = i === 0 ? 2 : 0;
     v = Math.max(0, Math.min(100, v));
-    const [j, k] = [0, 1, 2].filter(x => x !== i);
-    const sobra = 100 - v;
-    let rj;
-    if (ratio !== null && ratio !== undefined) rj = ratio;
-    else { const s = vals[j] + vals[k]; rj = s > 0 ? vals[j] / s : 0.5; }
-    vals[i] = v; vals[j] = sobra * rj; vals[k] = sobra * (1 - rj);
+    const teto = 100 - vals[o];
+    const travouNoTeto = v > teto;
+    if (travouNoTeto) v = teto;
+    vals[i] = v;
+    vals[1] = 100 - vals[0] - vals[2];
     pintar();
+    tracks[i].classList.toggle('capped', travouNoTeto);
     if (cfg.aoMudar) cfg.aoMudar(vals.slice());
   }
   function pintar(){
@@ -2060,20 +2079,19 @@ function criarBarras(host, opts){
     return (clientX - r.left) / r.width * 100;
   }
   const solturas = [];
-  tracks.forEach((track, i) => {
-    let ratio = null;
-    const mover = e => { if (ratio !== null) aplicar(i, valorEm(track, e.clientX), ratio); };
+  ARRASTAVEIS.forEach(i => {
+    const track = tracks[i];
+    let arrastando = false;
+    const mover = e => { if (arrastando) aplicar(i, valorEm(track, e.clientX)); };
     const soltar = e => {
-      ratio = null; track.classList.remove('dragging');
+      arrastando = false; track.classList.remove('dragging', 'capped');
       if (track.hasPointerCapture(e.pointerId)) track.releasePointerCapture(e.pointerId);
     };
     const pegar = e => {
       if (travado) return;
-      const [j, k] = [0, 1, 2].filter(x => x !== i);
-      const s = vals[j] + vals[k];
-      ratio = s > 0 ? vals[j] / s : 0.5;
+      arrastando = true;
       track.classList.add('dragging'); track.setPointerCapture(e.pointerId); track.focus();
-      aplicar(i, valorEm(track, e.clientX), ratio);
+      aplicar(i, valorEm(track, e.clientX));
       e.preventDefault();
     };
     track.addEventListener('pointerdown', pegar);
@@ -2091,7 +2109,7 @@ function criarBarras(host, opts){
       if (e.key === 'Home') v = 0;
       if (e.key === 'End')  v = 100;
       if (v === null) return;
-      e.preventDefault(); aplicar(i, v, null);
+      e.preventDefault(); aplicar(i, v);
     });
     solturas.push(() => {
       track.removeEventListener('pointerdown', pegar);
@@ -2110,7 +2128,10 @@ function criarBarras(host, opts){
     definir(v){ vals = normalizarPP(v); pintar(); },
     travar(b){
       travado = !!b;
-      tracks.forEach(t => { t.style.opacity = travado ? .75 : 1; t.tabIndex = travado ? -1 : 0; });
+      tracks.forEach((t, i) => {
+        t.style.opacity = travado ? .75 : 1;
+        if (ARRASTAVEIS.includes(i)) t.tabIndex = travado ? -1 : 0;
+      });
       const rb = host.querySelector('[data-reset]'); if (rb) rb.hidden = travado;
     },
     destruir(){ solturas.forEach(f => f()); host.innerHTML = ''; }
@@ -2292,7 +2313,7 @@ function ppMontarJogo1(){
     jogo: `${esc(j.casa)} <span style="color:var(--ink-4);font-size:.7em">×</span> ${esc(j.fora)}`,
     meta: `Rodada ${j.md} · ${ppFmtData(j.data)}`,
     rotulos: [`Vitória do ${j.casa}`, 'Empate', `Vitória do ${j.fora}`],
-    valores: [100 / 3, 100 / 3, 100 / 3]
+    valores: [0, 100, 0]
   });
   $('#ppAcao1').innerHTML = '<button class="btn solid" type="button" id="ppOk1">Confirmar palpite</button>';
   $('#ppOk1').addEventListener('click', ppConfirmar1);
@@ -2443,7 +2464,7 @@ function ppMontarJogo2(){
     jogo: `${esc(j.casa)} <span style="color:var(--ink-4);font-size:.7em">×</span> ${esc(j.fora)}`,
     meta: `Rodada ${j.md} · ${ppFmtData(j.data)}`,
     rotulos: [`Vitória do ${j.casa}`, 'Empate', `Vitória do ${j.fora}`],
-    valores: [100 / 3, 100 / 3, 100 / 3]
+    valores: [0, 100, 0]
   });
   $('#ppAcao2').innerHTML = `<button class="btn solid" type="button" id="ppOk2">${
     st.atual + 1 < st.jogos.length ? 'Confirmar e seguir' : 'Guardar os palpites'}</button>`;

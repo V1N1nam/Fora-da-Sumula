@@ -2239,7 +2239,6 @@ function ppSimular(nSims, semente, forcadas){
 
 /* ---------- estado e utilidades comuns aos dois modos --------- */
 const PP_CHAVE = 'fds_palpite_proxima_v1';
-const PP_JANELA_POOL = 8;   // mesma janela de PALPITE_JANELA_POOL em build_site.py
 const PP_RUIDO = 0.015;     // piso de ruido entre duas rodadas de MC (medido em mc-benchmark)
 const PP_IDX = {C: 0, E: 1, F: 2};
 let ppModo = 'passadas';
@@ -2421,13 +2420,17 @@ function ppTerminar1(){
 
 /* ---------- Modo 2: próxima rodada, resolução adiada ----------- */
 function ppMontarProxima(host){
-  /* presenca de palpite salvo decide o ramo -- NUNCA o numero da rodada
-     "proxima" atual do payload: se o usuario salvou pra rodada 27 e o
-     site ja avancou pra 28 (rodada 27 foi jogada de verdade), o salvo
-     ainda precisa resolver contra o placar da 27 antes de sumir. So
-     comecar rodada nova quando nao ha NADA salvo (primeira visita, ou
-     depois de "recomecar"). */
-  const salvo = ppLer();
+  /* No maximo um palpite pendente por vez. Ele so resolve (mostra
+     resumo) se for exatamente da rodada anterior a atual -- a rodada
+     que acabou de ser jogada. Palpite mais antigo que isso (duas ou
+     mais rodadas passaram sem o site ser aberto) e descartado em
+     silencio, sem resumo, sem contar acerto/erro: comeca a rodada
+     atual direto. */
+  let salvo = ppLer();
+  if (salvo && ppSituacao(salvo) === 'expirado'){
+    try { localStorage.removeItem(PP_CHAVE); } catch (e) {}
+    salvo = null;
+  }
   if (salvo){ ppResultado2(host, salvo); return; }
 
   if (!DATA.palpite.proxima.length){
@@ -2481,27 +2484,26 @@ function ppMontarJogo2(){
   });
 }
 function ppSituacao(salvo){
-  const achados = salvo.palpites.filter(p => DATA.palpite.pool.some(g => g.id === p.id));
-  if (achados.length === salvo.palpites.length) return 'pronto';
-  if (DATA.current_round > salvo.md + PP_JANELA_POOL) return 'expirado';
+  /* salvo.md e sempre a rodada seguinte a atual no momento em que foi
+     salvo (proxima ainda nao jogada). Uma unica rodada nova jogada
+     desde entao faz DATA.current_round alcancar salvo.md -- e ai que
+     o placar real ja esta no pool e da pra resolver. */
+  if (salvo.md === DATA.current_round) return 'pronto';
+  if (salvo.md < DATA.current_round) return 'expirado';
   return 'aguardando';
 }
 function ppResultado2(host, salvo){
-  const st = ppSituacao(salvo);
-  if (st === 'pronto') { ppResolvido2(host, salvo); return; }
+  if (ppSituacao(salvo) === 'pronto') { ppResolvido2(host, salvo); return; }
 
-  const expirado = st === 'expirado';
-  const podeSimular = !expirado && salvo.palpites.every(p => DATA.palpite.mc.jogos.some(j => j[2] === p.id));
+  /* rodada ainda nao jogada (salvo.md > current_round): so espera. */
+  const podeSimular = salvo.palpites.every(p => DATA.palpite.mc.jogos.some(j => j[2] === p.id));
   host.innerHTML = `
     <div class="card">
-      <span class="badge ${expirado ? 'bad' : 'warn'}">${expirado ? 'Expirado' : 'Aguardando a rodada'}</span>
+      <span class="badge warn">Aguardando a rodada</span>
       <h3 style="font-family:var(--f-serif);font-weight:400;font-size:clamp(20px,3.4vw,26px);margin-top:var(--s3)">
         Rodada ${salvo.md}</h3>
-      <p class="note" style="margin-top:var(--s2)">${expirado
-        ? `Essa rodada saiu da janela de ${PP_JANELA_POOL} rodadas do pool de jogos passados —
-           não há mais como buscar o placar dela aqui.`
-        : `Palpites salvos em ${ppFmtData(salvo.salvo_em)}. Quando o site atualizar com os placares
-           da rodada, esta tela vira o resumo de acertos sozinha.`}</p>
+      <p class="note" style="margin-top:var(--s2)">Palpites salvos em ${ppFmtData(salvo.salvo_em)}. Quando o site
+        atualizar com os placares da rodada, esta tela vira o resumo de acertos sozinha.</p>
       <div class="pp-lista" style="margin-top:var(--s4)">
         ${salvo.palpites.map(p => {
           const m = confronto(p.rc, p.rf).map(x => Math.round(x * 100));

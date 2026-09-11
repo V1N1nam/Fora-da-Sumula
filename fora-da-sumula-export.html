@@ -63,12 +63,22 @@ textarea#caption{width:100%;font:inherit;font-size:13.5px;line-height:1.55;paddi
         <option value="zebra">2 · Zebra de um jogo</option>
         <option value="ranking">3 · Ranking de zebras da rodada</option>
         <option value="status">4 · Status semanal</option>
+        <option value="confronto">5 · Confronto entre dois clubes</option>
       </select>
     </div>
     <div class="field" id="jogoField" hidden>
       <label for="jogo">Jogo</label>
       <select id="jogo"></select>
     </div>
+    <div class="field" id="confHomeField" hidden>
+      <label for="confHome">Mandante</label>
+      <select id="confHome"></select>
+    </div>
+    <div class="field" id="confAwayField" hidden>
+      <label for="confAway">Visitante</label>
+      <select id="confAway"></select>
+    </div>
+    <button class="btn secondary" id="btnConfSwap" type="button" hidden>⇄ Inverter mando</button>
     <button class="btn secondary" id="btnRefresh" type="button">Atualizar preview</button>
     <button class="btn" id="btnDown" type="button">Baixar imagem (PNG)</button>
   </div>
@@ -497,7 +507,155 @@ function renderStatus(){
   return {svg: shell(inner, tagFor(DATA.current_round)), name: `status-semanal-rodada-${DATA.current_round}.png`, caption: captionStatus(m)};
 }
 
-const RENDERERS = {previa: renderPrevia, zebra: () => renderZebra(+document.getElementById('jogo').value), ranking: renderRanking, status: renderStatus};
+/* -------------------- 5. confronto entre dois clubes -------------------- */
+/* mesmo modelo de 3 resultados (Elo + Davidson) do simulador "Quem
+   ganharia?" da pagina Forca do site -- so os dois parametros (HFA, NU)
+   vem no payload enxuto do export, sem a sentinela __ELO__ inteira. */
+function confrontoProb(rh, ra){
+  const th = Math.pow(10, (rh + DATA.elo_hfa) / 400), ta = Math.pow(10, ra / 400);
+  const dr = DATA.elo_nu * Math.sqrt(th * ta), s = th + ta + dr;
+  return [th / s, dr / s, ta / s];
+}
+const byTableConfronto = () => [...DATA.team_order].sort(
+  (a, b) => DATA.teams_confronto[a].real_position - DATA.teams_confronto[b].real_position
+);
+const pluralPt = (n, s, p) => n === 1 ? s : (p || s + 's');
+
+function h2hNoteConfronto(hk, ak){
+  const T = DATA.teams_confronto;
+  const a = Math.min(+hk, +ak), b = Math.max(+hk, +ak);
+  const rec = DATA.h2h[a + '_' + b];
+  if (!rec) return {text: 'Nunca se enfrentaram na Série A desde 2023.', small: false};
+  if (rec.jogos < 4) return {
+    text: `Poucos confrontos recentes entre os dois (${rec.jogos} ${pluralPt(rec.jogos, 'jogo')} desde 2023) — amostra pequena demais pra detalhar retrospecto.`,
+    small: true,
+  };
+  const hIsA = (+hk) === rec.a, vh = hIsA ? rec.va : rec.vb, vv = hIsA ? rec.vb : rec.va;
+  return {
+    text: `Retrospecto desde 2023 (${rec.jogos} jogos): ${vh} ${pluralPt(vh, 'vitória', 'vitórias')} do ${T[hk].short_name}, ${rec.empates} ${pluralPt(rec.empates, 'empate')}, ${vv} ${pluralPt(vv, 'vitória', 'vitórias')} do ${T[ak].short_name}.`,
+    small: false,
+  };
+}
+
+const CAP_CONFRONTO = {
+  parelho: [
+    (h, a, ph) => `${h} e ${a} chegam parelhos nas contas de força — o modelo não vê favorito claro nesse confronto.`,
+    (h, a, ph) => `Duelo equilibrado entre ${h} e ${a}: a força atual dos dois times está bem próxima.`,
+  ],
+  favorito: [
+    (h, a, ph, pct, fav) => `${fav} entra como favorito pelo modelo de força, mas ${pct} de chance pro outro lado mantém o jogo em aberto.`,
+    (h, a, ph, pct, fav) => `Força atual favorece o ${fav} nesse confronto entre ${h} e ${a}, com ${pct} reservado pro resultado inverso.`,
+  ],
+  claro: [
+    (h, a, ph, pct, fav) => `${fav} é favorito com folga pelo modelo de força — o outro lado fica com só ${pct} de chance.`,
+    (h, a, ph, pct, fav) => `Diferença grande de força entre ${h} e ${a}: o modelo dá só ${pct} de chance pro azarão.`,
+  ],
+};
+function captionConfronto(hk, ak, h, d, a){
+  const T = DATA.teams_confronto;
+  const nh = esc(T[hk].short_name), na = esc(T[ak].short_name);
+  const favIsHome = h >= a;
+  const favPct = favIsHome ? h : a, azarPct = favIsHome ? a : h;
+  const fav = favIsHome ? nh : na;
+  const diff = favPct - azarPct;
+  const tier = diff < 0.06 ? 'parelho' : diff < 0.25 ? 'favorito' : 'claro';
+  const linha = pick(CAP_CONFRONTO[tier])(nh, na, pct1(d), pct1(azarPct), fav);
+  return `${linha} ${pick(DISCLAIMERS)}`;
+}
+
+function renderConfronto(hk, ak){
+  const T = DATA.teams_confronto;
+  if (!hk || !ak || hk === ak){
+    hk = DATA.team_order[0]; ak = DATA.team_order[1];
+  }
+  const th = T[hk], ta = T[ak];
+  const [h, d, a] = confrontoProb(th.forca, ta.forca);
+
+  const barX = 56, barY = 268, barW = 680, barH = 190, rx = 18;
+  const wH = Math.round(barW * h), wD = Math.round(barW * d), wA = barW - wH - wD;
+  const xD = barX + wH, xA = barX + wH + wD;
+  const seg = (x, w, fill, caption, pctTxt) => {
+    const cx = x + w / 2;
+    if (w >= 96){
+      return `<rect x="${x}" y="${barY}" width="${w}" height="${barH}" fill="${fill}"/>
+        <text x="${cx}" y="${barY + 60}" text-anchor="middle" font-size="15" font-weight="700" letter-spacing="1.5" fill="#fff">${caption}</text>
+        <text x="${cx}" y="${barY + 128}" text-anchor="middle" font-size="46" font-weight="700" fill="#fff">${pctTxt}</text>`;
+    }
+    return `<rect x="${x}" y="${barY}" width="${w}" height="${barH}" fill="${fill}"/>
+      <text x="${cx}" y="${barY + 104}" text-anchor="middle" font-size="26" font-weight="700" fill="#fff">${pctTxt}</text>`;
+  };
+
+  const statX0 = 796, statX1 = 1144, statCX = (statX0 + statX1) / 2, rowH = 92;
+  const rows = [
+    ['POSIÇÃO', th.real_position ? th.real_position + 'º' : '—', ta.real_position ? ta.real_position + 'º' : '—'],
+    ['PONTOS', th.real_points ?? '—', ta.real_points ?? '—'],
+    ['FORÇA', Math.round(th.forca), Math.round(ta.forca)],
+  ];
+  const rowsSVG = rows.map(([lbl, hv, av], i) => {
+    const y = barY + i * rowH;
+    const divider = i > 0 ? `<line x1="${statX0}" y1="${y}" x2="${statX1}" y2="${y}" stroke="${C.line}" stroke-width="1"/>` : '';
+    return `${divider}
+      <text x="${statCX}" y="${y + 22}" text-anchor="middle" font-size="12" font-weight="700" letter-spacing="1.5" fill="${C.ink3}">${lbl}</text>
+      <text x="${statX0}" y="${y + 64}" font-size="32" font-weight="700" fill="${C.ink}">${hv}</text>
+      <text x="${statCX}" y="${y + 62}" text-anchor="middle" font-size="17" fill="${C.ink4}">–</text>
+      <text x="${statX1}" y="${y + 64}" text-anchor="end" font-size="32" font-weight="700" fill="${C.ink}">${av}</text>`;
+  }).join('');
+
+  const note = h2hNoteConfronto(hk, ak);
+  const hSize = th.short_name.length > 11 ? 30 : th.short_name.length > 7 ? 36 : 42;
+  const aSize = ta.short_name.length > 11 ? 30 : ta.short_name.length > 7 ? 36 : 42;
+
+  const inner = `
+    <text x="56" y="118" font-size="15" font-weight="700" fill="${C.blue}" letter-spacing="1.5">CONFRONTO — QUEM GANHARIA</text>
+
+    <rect x="56" y="140" width="68" height="28" rx="14" fill="${C.accentSoft}"/>
+    <text x="90" y="159" text-anchor="middle" font-size="11.5" font-weight="700" letter-spacing="1" fill="${C.accent}">CASA</text>
+    <rect x="${1144 - 68}" y="140" width="68" height="28" rx="14" fill="${C.blueSoft}"/>
+    <text x="${1144 - 34}" y="159" text-anchor="middle" font-size="11.5" font-weight="700" letter-spacing="1" fill="${C.blue}">FORA</text>
+
+    <text x="56" y="216" font-size="${hSize}" font-weight="700" fill="${C.ink}">${esc(th.short_name)}</text>
+    <text x="600" y="210" text-anchor="middle" font-size="18" fill="${C.ink4}">vs</text>
+    <text x="1144" y="216" text-anchor="end" font-size="${aSize}" font-weight="700" fill="${C.ink}">${esc(ta.short_name)}</text>
+
+    <clipPath id="confBarClip"><rect x="${barX}" y="${barY}" width="${barW}" height="${barH}" rx="${rx}"/></clipPath>
+    <g clip-path="url(#confBarClip)">
+      ${seg(barX, wH, C.accent, 'CASA', pct0(h))}
+      ${seg(xD, wD, C.ink4, 'EMPATE', pct0(d))}
+      ${seg(xA, wA, C.blue, 'FORA', pct0(a))}
+    </g>
+    <text x="56" y="${barY + barH + 30}" font-size="13" fill="${C.ink3}">Chance de cada resultado hoje, pela força atual e o mando de campo.</text>
+
+    <line x1="750" y1="${barY}" x2="750" y2="${barY + 3 * rowH}" stroke="${C.line}" stroke-width="1"/>
+    ${rowsSVG}
+
+    <text x="56" y="600" font-size="13" fill="${note.small ? C.amber : C.ink3}">${esc(note.text)}</text>
+  `;
+  return {
+    svg: shell(inner, tagFor(DATA.current_round)),
+    name: `confronto-${th.short_name}-${ta.short_name}.png`.toLowerCase().replace(/\s+/g, '-'),
+    caption: captionConfronto(hk, ak, h, d, a),
+  };
+}
+
+function populateConfrontoSelects(){
+  const opts = byTableConfronto().map(k => `<option value="${k}">${esc(DATA.teams_confronto[k].short_name)}</option>`).join('');
+  const ch = document.getElementById('confHome'), ca = document.getElementById('confAway');
+  ch.innerHTML = opts; ca.innerHTML = opts;
+  ch.value = DATA.team_order[0]; ca.value = DATA.team_order[1];
+}
+function swapConfronto(){
+  const ch = document.getElementById('confHome'), ca = document.getElementById('confAway');
+  const tmp = ch.value; ch.value = ca.value; ca.value = tmp;
+  draw();
+}
+
+const RENDERERS = {
+  previa: renderPrevia,
+  zebra: () => renderZebra(+document.getElementById('jogo').value),
+  ranking: renderRanking,
+  status: renderStatus,
+  confronto: () => renderConfronto(document.getElementById('confHome').value, document.getElementById('confAway').value),
+};
 
 function populateJogoSelect(){
   const sel = document.getElementById('jogo');
@@ -508,6 +666,9 @@ let currentResult = null;
 function draw(){
   const tipo = document.getElementById('tipo').value;
   document.getElementById('jogoField').hidden = tipo !== 'zebra';
+  document.getElementById('confHomeField').hidden = tipo !== 'confronto';
+  document.getElementById('confAwayField').hidden = tipo !== 'confronto';
+  document.getElementById('btnConfSwap').hidden = tipo !== 'confronto';
   currentResult = RENDERERS[tipo]();
   document.getElementById('cardbox').innerHTML = currentResult.svg;
   document.getElementById('cardMeta').textContent = `1200×675px · ${currentResult.name}`;
@@ -570,11 +731,15 @@ function download(){
 
 document.getElementById('tipo').addEventListener('change', draw);
 document.getElementById('jogo').addEventListener('change', draw);
+document.getElementById('confHome').addEventListener('change', draw);
+document.getElementById('confAway').addEventListener('change', draw);
+document.getElementById('btnConfSwap').addEventListener('click', swapConfronto);
 document.getElementById('btnRefresh').addEventListener('click', draw);
 document.getElementById('btnDown').addEventListener('click', download);
 document.getElementById('btnReroll').addEventListener('click', rerollCaption);
 
 populateJogoSelect();
+populateConfrontoSelects();
 draw();
 </script>
 </body>

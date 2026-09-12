@@ -2815,7 +2815,23 @@ function route(){
   closeSheet();
   document.title = (id === 'corrida' ? 'Fora da Súmula' : PAGES.find(p => p.id === id).label + ' · Fora da Súmula');
   if (changed) window.scrollTo({top: 0, behavior: REDUCED ? 'auto' : 'smooth'});
+  if (changed) contaPageview('/' + id);
   lastPage = id;
+}
+
+/* Conta uma visualizacao no GoatCounter. So o id da pagina vira path
+   (/corrida, /time, /forca) -- os args de rota ficam de fora de proposito:
+   confronto sozinho geraria ~380 paths distintos e afogaria o painel.
+   O count.js e async e pode ser barrado por bloqueador, entao a chamada
+   fica na fila do evento gc-ready se ele ainda nao existir -- e se nunca
+   carregar, nada acontece e nada quebra. */
+function contaPageview(path){
+  const gc = window.goatcounter;
+  if (!gc || !gc.count){
+    addEventListener('gc-ready', () => contaPageview(path), {once: true});
+    return;
+  }
+  gc.count({path: path, title: document.title});
 }
 
 /* folha de navegação no mobile */
@@ -2885,5 +2901,14 @@ function init(){
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
 else init();
 </script>
+
+<!-- Analytics: GoatCounter (sem cookie, sem dado pessoal).
+     no_onload porque o site e uma SPA de hash: quem conta a visita e a
+     route(), la embaixo. Sem isso a primeira visualizacao viria dobrada
+     (uma do count.js no load, outra da route() inicial). -->
+<script>window.goatcounter = {no_onload: true};</script>
+<script data-goatcounter="https://vininam.goatcounter.com/count"
+        async src="https://gc.zgo.at/count.js"
+        onload="dispatchEvent(new Event('gc-ready'))"></script>
 </body>
 </html>

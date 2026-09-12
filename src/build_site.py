@@ -399,7 +399,13 @@ def build_proxima_rodada(short_names: dict[int, str]) -> list[dict]:
     zebra (lado mais fraco por rating atual vencer) de cada jogo --
     gerado por derived.zebra_provavel_proxima_rodada() e gravado em
     zebra_provavel.parquet, ja ordenado do jogo com mais chance de
-    zebra pro com menos."""
+    zebra pro com menos.
+
+    Os ids vao como string pra casarem com a chave de `teams_confronto`
+    no payload de export (`team_order` tambem e str): o card de Previa
+    da Rodada la busca a forca dos dois lados por esse id e roda o
+    mesmo Davidson do card de Confronto, em vez de reimplementar o
+    filtro de proxima rodada ou guardar probabilidade nova aqui."""
     z = pd.read_parquet(PROCESSED / "zebra_provavel.parquet")
     out = []
     for row in z.itertuples(index=False):
@@ -407,7 +413,9 @@ def build_proxima_rodada(short_names: dict[int, str]) -> list[dict]:
             {
                 "round": int(row.round),
                 "data": row.data[:10],
+                "mandante_id": str(int(row.mandante_id)),
                 "mandante": short_names.get(int(row.mandante_id), row.mandante),
+                "visitante_id": str(int(row.visitante_id)),
                 "visitante": short_names.get(int(row.visitante_id), row.visitante),
                 "favorito": row.favorito,
                 "prob_zebra": round(float(row.prob_zebra), 4),

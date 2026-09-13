@@ -32,6 +32,28 @@ NAO implementada.
 O update do rating usa Elo padrao (S=1/0.5/0 pelo resultado sorteado,
 E=logistico). Davidson entra SO na previsao de 3 vias (sorteio do
 resultado), nunca no update.
+
+Vagas continentais (2026-09-13): o mesmo laco de Monte Carlo acima
+tambem conta faixa de classificacao por posicao final -- g4_prob
+(1o-4o) ja existia, libertadores_prob/pre_libertadores_prob (5o-6o)/
+sulamericana_prob (7o-12o) sao novas. Decisao sobre libertadores_prob
+duplicar g4_prob em vez de so renomear: g4_prob e "G4", conceito de
+classificacao do Brasileirao ja consumido em varios lugares (badge
+"G4 garantido", coluna da tabela, cenarios.parquet, mudancas_semana)
+que nao tem nada a ver com vaga de copa continental -- renomear
+quebraria esses consumidores ou exigiria carregar o aviso de vaga de
+copa (abaixo) numa UI que ja existia sem ele. libertadores_prob e a
+mesma conta, exposta separada, so pra quem consome pensando em "vaga
+de Libertadores" e precisa do aviso junto.
+
+**Limitacao das 3 faixas novas**: contam so posicao final na tabela.
+Ignoram vaga extra de Libertadores/Sul-Americana concedida ao campeao
+da Copa do Brasil e ao campeao da Libertadores (que podem nao terminar
+entre os 6/12 primeiros do Brasileirao) -- nao ha dado dessas
+competicoes no pipeline (so football-data.org/BSA). Isso desloca toda
+a distribuicao pra baixo (um campeao de copa fora da faixa "rouba" uma
+vaga de quem ficaria na faixa por tabela). Nao ha correcao estimada
+pra isso aqui -- ver aviso equivalente no site e no README.
 """
 
 from __future__ import annotations
@@ -204,6 +226,13 @@ def simulate_remainder(
             "titulo_prob": float(np.mean(rank[:, i] == 1)),
             "g4_prob": float(np.mean(rank[:, i] <= 4)),
             "z4_prob": float(np.mean(rank[:, i] >= n_teams - 3)),
+            # vagas continentais (2026-09-13): mesma contagem do Monte
+            # Carlo ja rodado acima, nenhuma simulacao nova. libertadores_prob
+            # e IGUAL a g4_prob de proposito -- ver docstring do modulo sobre
+            # por que as duas colunas coexistem em vez de uma so.
+            "libertadores_prob": float(np.mean(rank[:, i] <= 4)),
+            "pre_libertadores_prob": float(np.mean((rank[:, i] >= 5) & (rank[:, i] <= 6))),
+            "sulamericana_prob": float(np.mean((rank[:, i] >= 7) & (rank[:, i] <= 12))),
         }
 
     final = {"points": points, "wins": wins, "goal_diff": goal_diff, "goals_for": goals_for, "teams": teams}

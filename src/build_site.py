@@ -170,6 +170,8 @@ def build_data() -> dict:
             "titulo": [round(float(v), 4) for v in pg["titulo_prob"]],
             "g4": [round(float(v), 4) for v in pg["g4_prob"]],
             "z4": [round(float(v), 4) for v in pg["z4_prob"]],
+            "pre_libertadores": [round(float(v), 4) for v in pg["pre_libertadores_prob"]],
+            "sulamericana": [round(float(v), 4) for v in pg["sulamericana_prob"]],
             "rating": [round(float(v), 1) for v in rg["rating"]],
         }
         if tid in standings_now.index:
@@ -222,6 +224,8 @@ def build_data() -> dict:
             for col in (
                 "titulo_confirmado", "titulo_descartado", "g4_confirmado",
                 "g4_descartado", "z4_confirmado", "z4_descartado",
+                "pre_libertadores_confirmado", "pre_libertadores_descartado",
+                "sulamericana_confirmado", "sulamericana_descartado",
             ):
                 row[col] = bool(c[col])
 

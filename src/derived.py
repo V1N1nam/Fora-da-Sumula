@@ -432,10 +432,12 @@ def ritmo_campeao(df: pd.DataFrame) -> pd.DataFrame:
 def cenarios() -> pd.DataFrame:
     """Pra cada clube, na rodada mais recente ja simulada: confirmado ou
     descartado MATEMATICAMENTE (dentro da resolucao de 10 mil
-    simulacoes) de titulo, G4 e Z4 -- probabilidade virou exatamente 0%
-    ou exatamente 100% no Monte Carlo de elo.py. Nao e combinatoria
-    exata, e a aproximacao do Monte Carlo ja rodado (nenhuma simulacao
-    nova aqui).
+    simulacoes) de titulo, G4, Z4, pre-Libertadores e Sul-Americana --
+    probabilidade virou exatamente 0% ou exatamente 100% no Monte Carlo
+    de elo.py. Nao e combinatoria exata, e a aproximacao do Monte Carlo
+    ja rodado (nenhuma simulacao nova aqui). libertadores_prob nao entra
+    aqui por ser identico a g4_prob (ver docstring de elo.py) -- usar
+    g4_confirmado/g4_descartado ja cobre os dois.
 
     Arquivo separado, nao coluna nova em elo_probabilidades.parquet:
     esse parquet e escrito por elo.py (dono do dado), nao por
@@ -450,7 +452,13 @@ def cenarios() -> pd.DataFrame:
     current_round = int(probs["round"].max())
     now = probs[probs["round"] == current_round].copy()
 
-    for col, prefix in (("titulo_prob", "titulo"), ("g4_prob", "g4"), ("z4_prob", "z4")):
+    for col, prefix in (
+        ("titulo_prob", "titulo"),
+        ("g4_prob", "g4"),
+        ("z4_prob", "z4"),
+        ("pre_libertadores_prob", "pre_libertadores"),
+        ("sulamericana_prob", "sulamericana"),
+    ):
         now[f"{prefix}_confirmado"] = now[col] >= 1.0
         now[f"{prefix}_descartado"] = now[col] <= 0.0
 
@@ -459,6 +467,8 @@ def cenarios() -> pd.DataFrame:
         "titulo_confirmado", "titulo_descartado",
         "g4_confirmado", "g4_descartado",
         "z4_confirmado", "z4_descartado",
+        "pre_libertadores_confirmado", "pre_libertadores_descartado",
+        "sulamericana_confirmado", "sulamericana_descartado",
     ]
     return now[cols].reset_index(drop=True)
 

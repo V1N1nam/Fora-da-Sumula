@@ -47,6 +47,8 @@
   --red-soft:#F7E6E3;
   --amber:#8F6410;
   --amber-soft:#F4EDDB;
+  --violet:#6A4C93;
+  --violet-soft:#EBE5F1;
   --faint:#C9CFC8;
   --grid:#E6E9E3;
   --on-accent:#FFFFFF;
@@ -77,6 +79,8 @@ html[data-theme="dark"]{
   --red-soft:#331B18;
   --amber:#E4B54C;
   --amber-soft:#2E2411;
+  --violet:#B79CE0;
+  --violet-soft:#271E33;
   --faint:#394245;
   --grid:#20272A;
   --on-accent:#08130F;
@@ -259,7 +263,9 @@ main{min-width:0}
 .stat .v small{font-size:13px;font-weight:500;color:var(--ink-3);letter-spacing:0;margin-left:4px}
 .stat .d{font-size:12px;color:var(--ink-3);margin-top:3px;line-height:1.4}
 
-.seg{display:inline-flex;background:var(--surface-3);border-radius:var(--r-pill);padding:3px;gap:2px;position:relative}
+.seg{display:inline-flex;background:var(--surface-3);border-radius:var(--r-pill);padding:3px;gap:2px;position:relative;
+  max-width:100%;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
+.seg::-webkit-scrollbar{display:none}
 .seg button{
   font-size:13px;font-weight:500;color:var(--ink-3);padding:6px 15px;border-radius:var(--r-pill);
   transition:color var(--dur-2) var(--ease);position:relative;z-index:1;white-space:nowrap;
@@ -869,6 +875,8 @@ document.documentElement.dataset.theme=t;}catch(e){document.documentElement.data
       <span class="thumb" aria-hidden="true"></span>
       <button type="button" data-m="titulo" aria-pressed="true">Título</button>
       <button type="button" data-m="g4" aria-pressed="false">G4</button>
+      <button type="button" data-m="pre_libertadores" aria-pressed="false">Pré-Libertadores</button>
+      <button type="button" data-m="sulamericana" aria-pressed="false">Sul-Americana</button>
       <button type="button" data-m="z4" aria-pressed="false">Rebaixamento</button>
     </div>
   </div>
@@ -879,6 +887,10 @@ document.documentElement.dataset.theme=t;}catch(e){document.documentElement.data
   <p class="note">A barra cheia é a chance na rodada atual; o traço vertical marca onde
     o clube estava na rodada passada. A seta ao lado mostra a variação em pontos
     percentuais. Clubes com chance abaixo de 0,5% aparecem como “—”.</p>
+  <p class="note" id="clubesAvisoVaga" hidden>Essas faixas contam só a posição final na tabela —
+    ignoram a vaga extra que a Copa do Brasil e a própria Libertadores dão aos seus campeões
+    (que podem terminar fora da faixa aqui projetada). Isso pode deslocar a distribuição real
+    pra baixo. Não temos dado dessas duas competições no pipeline pra corrigir a conta.</p>
 </section>
 
 <!-- ===================== UM TIME ===================== -->
@@ -1111,7 +1123,7 @@ function palette(){
   const cs = getComputedStyle(document.documentElement);
   const v = n => cs.getPropertyValue(n).trim();
   return {ink:v('--ink'), ink2:v('--ink-2'), ink3:v('--ink-3'), ink4:v('--ink-4'),
-    accent:v('--accent'), blue:v('--blue'), red:v('--red'), amber:v('--amber'),
+    accent:v('--accent'), blue:v('--blue'), red:v('--red'), amber:v('--amber'), violet:v('--violet'),
     faint:v('--faint'), grid:v('--grid'), line:v('--line'), surface:v('--surface')};
 }
 
@@ -1658,10 +1670,13 @@ function paintZebras(){
    ============================================================ */
 let metric = 'titulo';
 const METRIC_META = {
-  titulo: {label: 'título', color: 'var(--accent)', key: 'titulo'},
-  g4:     {label: 'G4',     color: 'var(--blue)',   key: 'g4'},
-  z4:     {label: 'rebaixamento', color: 'var(--red)', key: 'z4'}
+  titulo:           {label: 'título',            color: 'var(--accent)', key: 'titulo', frase: 'campeão'},
+  g4:               {label: 'G4',                color: 'var(--blue)',   key: 'g4', frase: 'no G4'},
+  pre_libertadores: {label: 'pré-Libertadores',  color: 'var(--amber)',  key: 'pre_libertadores', frase: 'no pré-Libertadores (5º ou 6º)'},
+  sulamericana:     {label: 'Sul-Americana',     color: 'var(--violet)', key: 'sulamericana', frase: 'na faixa da Sul-Americana (7º ao 12º)'},
+  z4:               {label: 'rebaixamento',      color: 'var(--red)',   key: 'z4', frase: 'no Z4'}
 };
+const METRIC_VAGA_CONTINENTAL = new Set(['pre_libertadores', 'sulamericana']);
 function renderClubes(){
   $('#eyeClubes').innerHTML = `<span>Rodada ${DATA.current_round}</span><span class="dv"></span>` +
     `<span>10 mil simulações do restante</span>`;
@@ -1670,9 +1685,10 @@ function renderClubes(){
 function paintClubes(first){
   const M = METRIC_META[metric];
   $('#clubesLede').innerHTML =
-    `Chance de cada clube terminar ${metric === 'z4' ? 'no Z4' : metric === 'g4' ? 'no G4' : 'campeão'},
+    `Chance de cada clube terminar ${M.frase},
      com ${REMAINING} ${plural(REMAINING, 'rodada')} pela frente. A barra clara marca onde ele
      estava na rodada ${R[PREV]}.`;
+  $('#clubesAvisoVaga').hidden = !METRIC_VAGA_CONTINENTAL.has(metric);
 
   const rows = [...ORD].sort((a, b) => T[b][metric][LAST] - T[a][metric][LAST]);
   const fav = rows[0];

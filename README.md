@@ -2,9 +2,9 @@
 
 Pipeline de métricas derivadas do Brasileirão. Busca a API do
 football-data.org a cada rodada, mantém um rating de Elo com Monte
-Carlo do restante da temporada (probabilidade de título, G4 e Z4 por
-clube), e grava Parquet versionado no próprio repositório. Sem
-servidor, sem banco, sem custo fixo.
+Carlo do restante da temporada (probabilidade de título, G4, Z4 e
+faixas de vaga continental por clube), e grava Parquet versionado no
+próprio repositório. Sem servidor, sem banco, sem custo fixo.
 
 ## Ordem de execução
 
@@ -116,12 +116,45 @@ calibrados (K, HFA, ν) de `config.py` -- nada aqui recalibra nada.
   temporada fechada (2023-2025) bate exatamente com o campeão real em
   `standings.parquet`.
 - **`cenarios.parquet`** -- por clube, na rodada mais recente: título,
-  G4 e Z4 confirmados ou descartados matematicamente (probabilidade
-  virou exatamente 0% ou 100% nas 10 mil simulações do Monte Carlo já
-  rodado por `elo.py` -- nenhuma simulação nova aqui). Arquivo
-  separado do `elo_probabilidades.parquet` de propósito: aquele é dono
-  do `elo.py`, e "confirmado/descartado" só faz sentido pra rodada
-  atual, não pro histórico inteiro que ele carrega.
+  G4, Z4, pré-Libertadores e Sul-Americana confirmados ou descartados
+  matematicamente (probabilidade virou exatamente 0% ou 100% nas 10 mil
+  simulações do Monte Carlo já rodado por `elo.py` -- nenhuma simulação
+  nova aqui). Arquivo separado do `elo_probabilidades.parquet` de
+  propósito: aquele é dono do `elo.py`, e "confirmado/descartado" só
+  faz sentido pra rodada atual, não pro histórico inteiro que ele
+  carrega. "Descartado" do Z4 vira o selo "salvo" na tabela do site
+  quando o clube chegou a ter risco real (≥10% de Z4 em alguma rodada) --
+  time que nunca teve risco não ganha selo, seria ruído.
+
+### `elo_probabilidades.parquet` -- faixas de classificação (`src/elo.py`)
+
+Por clube, por rodada: `titulo_prob`, `g4_prob`, `z4_prob` (já
+existiam) e três colunas de vaga continental adicionadas em
+2026-09-13, contadas no mesmo Monte Carlo de 10 mil simulações --
+nenhum dado novo, nenhuma simulação nova:
+
+- `libertadores_prob` -- terminou entre 1º e 4º. **Idêntica a
+  `g4_prob`** de propósito: `g4_prob` já é consumida por vários
+  lugares que não tem nada a ver com vaga de copa (badge "G4
+  garantido" da tabela, `cenarios.parquet`, "o que mudou" da semana) e
+  renomear quebraria esses consumidores ou forçaria o aviso de vaga de
+  copa (abaixo) numa UI que já existia sem ele. `libertadores_prob`
+  existe separada só pra quem for consumir o dado pensando
+  especificamente em "vaga de Libertadores" -- ver `src/elo.py` para o
+  raciocínio completo.
+- `pre_libertadores_prob` -- terminou em 5º ou 6º.
+- `sulamericana_prob` -- terminou entre 7º e 12º.
+
+**Limitação, válida pras três colunas acima**: contam só posição final
+na tabela do Brasileirão. Não descontam a vaga extra de Libertadores
+que o campeão da Copa do Brasil ganha, nem a vaga extra de Sul-Americana
+que o campeão da própria Libertadores ganha, quando esses clubes não
+terminam dentro da faixa por tabela -- o pipeline não tem dado da Copa
+do Brasil nem da Libertadores (só `football-data.org`/Brasileirão Série
+A). Um campeão de copa fora da faixa "empurra" pra baixo quem ficaria
+na vaga só pela tabela, deslocando a distribuição inteira. Não há
+correção estimada pra isso. O site mostra um aviso equivalente nas
+abas de Pré-Libertadores e Sul-Americana da seção "O que está em jogo".
 
 ## Limitações conhecidas
 

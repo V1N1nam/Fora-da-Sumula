@@ -633,15 +633,21 @@ def build_export_data(data: dict) -> dict:
         if any(flags.values()):
             cenarios.append({"team": t["short_name"], **flags})
 
-    # so o que o card de Confronto precisa por clube: nome, posicao,
-    # pontos e a forca (rating) atual -- nao o historico rodada a rodada
-    # que "teams" carrega pro site principal.
+    # o que os cards de Confronto e Chances por clube precisam por clube:
+    # nome, posicao, pontos, forca (rating) atual e a ULTIMA probabilidade
+    # (rodada atual, nao o historico) das 5 faixas -- nao o historico
+    # rodada a rodada que "teams" carrega pro site principal.
     teams_confronto = {
         tid: {
             "short_name": data["teams"][tid]["short_name"],
             "real_position": data["teams"][tid].get("real_position"),
             "real_points": data["teams"][tid].get("real_points"),
             "forca": data["teams"][tid]["rating"][-1],
+            "titulo": data["teams"][tid]["titulo"][-1],
+            "g4": data["teams"][tid]["g4"][-1],
+            "pre_libertadores": data["teams"][tid]["pre_libertadores"][-1],
+            "sulamericana": data["teams"][tid]["sulamericana"][-1],
+            "z4": data["teams"][tid]["z4"][-1],
         }
         for tid in data["team_order"]
     }

@@ -28,8 +28,11 @@ h1{font-size:18px;font-weight:700;margin-bottom:2px}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:20px;
   display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end}
 .field{display:flex;flex-direction:column;gap:6px}
+.field[hidden]{display:none}
 .field label{font-size:11.5px;font-weight:600;color:var(--ink-3);text-transform:uppercase;letter-spacing:.03em}
 select{font:inherit;font-size:14px;padding:9px 12px;border-radius:8px;border:1px solid var(--line-2);background:var(--surface);color:var(--ink);min-width:200px}
+select[multiple]{padding:6px;min-width:220px}
+select[multiple] option{padding:4px 6px;border-radius:4px}
 .btn{font:inherit;font-size:14px;font-weight:600;padding:10px 18px;border-radius:8px;border:none;
   background:var(--accent);color:#fff;cursor:pointer}
 .btn:active{transform:translateY(1px)}
@@ -65,6 +68,7 @@ textarea#caption{width:100%;font:inherit;font-size:13.5px;line-height:1.55;paddi
         <option value="status">4 · Status semanal</option>
         <option value="confronto">5 · Confronto entre dois clubes</option>
         <option value="previa4">6 · Prévia da rodada (4 jogos)</option>
+        <option value="chances">7 · Chances por clube</option>
       </select>
     </div>
     <div class="field" id="jogoField" hidden>
@@ -95,6 +99,10 @@ textarea#caption{width:100%;font:inherit;font-size:13.5px;line-height:1.55;paddi
     <div class="field" id="pvSec3Field" hidden>
       <label for="pvSec3">Secundário 3</label>
       <select id="pvSec3"></select>
+    </div>
+    <div class="field" id="chancesField" hidden>
+      <label for="chancesSelect">Clubes (1 a 5 — Ctrl/Cmd+clique)</label>
+      <select id="chancesSelect" multiple size="8"></select>
     </div>
     <button class="btn secondary" id="btnRefresh" type="button">Atualizar preview</button>
     <button class="btn" id="btnDown" type="button">Baixar imagem (PNG)</button>
@@ -130,6 +138,7 @@ const C = {
   blue:'#7DB0F0', blueSoft:'#152537',
   red:'#F5786A', redSoft:'#331B18',
   amber:'#E4B54C', amberSoft:'#2E2411',
+  violet:'#B79CE0', violetSoft:'#271E33',
   onAccent:'#08130F',
 };
 const W = 1200, H = 675;
@@ -869,6 +878,149 @@ const previa4Sel = () => [
     .map(Number),
 ];
 
+/* -------------------- 7. chances por clube -------------------- */
+/* Tabela com ate 5 clubes lado a lado, uma linha por clube, 5 colunas
+   de probabilidade (titulo/G4-Lib/pre-Lib/Sula/Z4) -- pedido explicito
+   do prompt foi EVITAR 5 barras x 5 clubes (vira ilegivel) e preferir
+   numeros alinhados em coluna, tipo tabela, com o rotulo uma vez no
+   cabecalho em vez de repetido em cada celula.
+
+   Piso de 0,5% -> "—" e a mesma regra ja usada no site principal pro
+   Z4 (fora-da-sumula-v3.html, tabela de clubes); aplicada aqui as 5
+   colunas por consistencia visual, nao so titulo/Z4 como o prompt
+   citou como exemplo minimo.
+
+   Cores por coluna == mesma paleta que o site usa pra cada faixa
+   (titulo=accent, G4=blue, pre-Lib=amber, Sula=violet, Z4=red -- ver
+   METRIC_META em fora-da-sumula-v3.html). */
+const CHANCES_FLOOR = 0.005;
+const CHANCES_COLS = [
+  {key: 'titulo', label: 'TÍTULO', get color(){ return C.accent; }},
+  {key: 'g4', label: 'G4/LIB', get color(){ return C.blue; }},
+  {key: 'pre_libertadores', label: 'PRÉ-LIB', get color(){ return C.amber; }},
+  {key: 'sulamericana', label: 'SULA', get color(){ return C.violet; }},
+  {key: 'z4', label: 'Z4', get color(){ return C.red; }},
+];
+
+function populateChancesSelect(){
+  const order = byTableConfronto();
+  const sel = document.getElementById('chancesSelect');
+  const n = order.length;
+  // selecao padrao espalhada pela tabela (topo, meio, dois da briga de
+  // Z4) so pra dar um preview util antes do usuario escolher os
+  // clubes reais -- nao tem significado nenhum alem disso.
+  const defaults = new Set([
+    order[0], order[Math.floor(n / 2)],
+    order[Math.max(0, n - 4)], order[Math.max(0, n - 2)],
+  ].filter(Boolean));
+  sel.innerHTML = order.map(k => {
+    const t = DATA.teams_confronto[k];
+    const pos = t.real_position ? `${t.real_position}º` : '—';
+    return `<option value="${k}"${defaults.has(k) ? ' selected' : ''}>${pos} · ${esc(t.short_name)}</option>`;
+  }).join('');
+}
+
+function getChancesSelection(){
+  return Array.from(document.getElementById('chancesSelect').selectedOptions).map(o => o.value);
+}
+
+/* Trava em 5 (limite pedido explicitamente, "pra nao virar ilegivel")
+   -- desmarca o excedente em vez de bloquear a selecao, que travaria o
+   <select multiple> de um jeito confuso pro usuario. */
+function enforceChancesLimit(){
+  const opts = Array.from(document.getElementById('chancesSelect').selectedOptions);
+  if (opts.length > 5){
+    opts.slice(5).forEach(o => { o.selected = false; });
+    alert('Máximo de 5 clubes por card — os demais foram desmarcados.');
+  }
+}
+
+const CAP_CHANCES = {
+  comZ4: [
+    (n, top, topPct, risco, riscoPct) => `Retrato de ${n} clubes na tabela: ${top} lidera as contas de título (${topPct}), enquanto ${risco} carrega ${riscoPct} de chance de Z4.`,
+    (n, top, topPct, risco, riscoPct) => `Entre os ${n} clubes deste card, ${top} é quem mais pesa no título (${topPct}) — do outro lado, ${risco} soma ${riscoPct} de risco de rebaixamento.`,
+  ],
+  semZ4: [
+    (n, top, topPct) => `Retrato de ${n} clubes na tabela: ${top} é o que mais pesa nas contas de título, com ${topPct} de chance.`,
+    (n, top, topPct) => `Entre os ${n} clubes deste card, ${top} aparece na frente nas contas de título (${topPct}).`,
+  ],
+};
+function captionChances(ids){
+  const T = DATA.teams_confronto;
+  if (!ids.length) return pick(DISCLAIMERS);
+  const byTitulo = [...ids].sort((a, b) => T[b].titulo - T[a].titulo)[0];
+  const byZ4 = [...ids].sort((a, b) => T[b].z4 - T[a].z4)[0];
+  let linha;
+  if (T[byZ4].z4 >= CHANCES_FLOOR && byZ4 !== byTitulo){
+    linha = pick(CAP_CHANCES.comZ4)(ids.length, esc(T[byTitulo].short_name), pct1(T[byTitulo].titulo), esc(T[byZ4].short_name), pct1(T[byZ4].z4));
+  } else {
+    linha = pick(CAP_CHANCES.semZ4)(ids.length, esc(T[byTitulo].short_name), pct1(T[byTitulo].titulo));
+  }
+  return `${linha} ${pick(DISCLAIMERS)}`;
+}
+
+function renderChances(){
+  const T = DATA.teams_confronto;
+  let ids = getChancesSelection();
+  if (!ids.length) ids = [DATA.team_order[0]];
+  ids = ids.slice(0, 5).sort((a, b) => (T[a].real_position ?? 999) - (T[b].real_position ?? 999));
+
+  const bx = 56, bxEnd = W - 56, nameColW = 380;
+  const colsX0 = bx + nameColW, colsW = bxEnd - colsX0;
+  const colX = CHANCES_COLS.map((_, i) => colsX0 + colsW / CHANCES_COLS.length * (i + 0.5));
+
+  const headerY = 150;
+  let header = `<text x="${bx}" y="${headerY}" font-size="12" font-weight="700" letter-spacing="1" fill="${C.ink3}">CLUBE</text>`;
+  CHANCES_COLS.forEach((c, i) => {
+    header += `<text x="${colX[i]}" y="${headerY}" text-anchor="middle" font-size="12" font-weight="700" letter-spacing="1" fill="${c.color}">${c.label}</text>`;
+  });
+  header += `<line x1="${bx}" y1="${headerY + 16}" x2="${bxEnd}" y2="${headerY + 16}" stroke="${C.line2}" stroke-width="1"/>`;
+
+  /* startY/rowH/avisoY sao fixos (nao dependem de ids.length) -- com 5
+     clubes (o maximo) a ultima linha termina bem antes do aviso, e com
+     menos clubes so sobra espaco em branco entre as linhas e o aviso,
+     em vez do aviso subir e ficar com posicao inconsistente entre
+     exports diferentes do mesmo tipo de card. */
+  const rowH = 68, startY = 204;
+  let rows = '';
+  ids.forEach((tid, i) => {
+    const t = T[tid], y = startY + i * rowH;
+    const nameSize = t.short_name.length > 14 ? 21 : t.short_name.length > 10 ? 24 : 27;
+    const pos = t.real_position ? `${t.real_position}º` : '—';
+    const pts = t.real_points != null ? `${t.real_points} pts` : '—';
+    rows += `<text x="${bx}" y="${y}" font-size="${nameSize}" font-weight="700" fill="${C.ink}">${esc(t.short_name)}</text>
+      <text x="${bx}" y="${y + 21}" font-size="13" fill="${C.ink3}">${pos} · ${pts}</text>`;
+    CHANCES_COLS.forEach((c, j) => {
+      const v = t[c.key];
+      const txt = v < CHANCES_FLOOR ? '—' : pct1(v);
+      const fill = v < CHANCES_FLOOR ? C.ink4 : c.color;
+      rows += `<text x="${colX[j]}" y="${y - 2}" text-anchor="middle" font-size="24" font-weight="700" fill="${fill}">${txt}</text>`;
+    });
+    if (i < ids.length - 1){
+      rows += `<line x1="${bx}" y1="${y + 34}" x2="${bxEnd}" y2="${y + 34}" stroke="${C.line}" stroke-width="1"/>`;
+    }
+  });
+
+  const avisoY = 545;
+  const aviso = `
+    <rect x="${bx}" y="${avisoY}" width="${bxEnd - bx}" height="56" rx="10" fill="${C.amberSoft}"/>
+    <text x="${bx + 20}" y="${avisoY + 22}" font-size="13" fill="${C.amber}">G4/Lib, Pré-Lib e Sul-Americana contam só a posição final na tabela — ignoram a vaga extra que a</text>
+    <text x="${bx + 20}" y="${avisoY + 41}" font-size="13" fill="${C.amber}">Copa do Brasil e a própria Libertadores dão aos campeões, o que pode deslocar a faixa real pra baixo.</text>
+  `;
+
+  const inner = `
+    <text x="56" y="118" font-size="15" font-weight="700" fill="${C.blue}" letter-spacing="1.5">CHANCES POR CLUBE</text>
+    ${header}
+    ${rows}
+    ${aviso}
+  `;
+  return {
+    svg: shell(inner, tagFor(DATA.current_round)),
+    name: `chances-clubes-rodada-${DATA.current_round}-${ids.map(tid => T[tid].short_name).join('-')}.png`.toLowerCase().replace(/\s+/g, '-'),
+    caption: captionChances(ids),
+  };
+}
+
 function populateConfrontoSelects(){
   const opts = byTableConfronto().map(k => `<option value="${k}">${esc(DATA.teams_confronto[k].short_name)}</option>`).join('');
   const ch = document.getElementById('confHome'), ca = document.getElementById('confAway');
@@ -888,6 +1040,7 @@ const RENDERERS = {
   status: renderStatus,
   confronto: () => renderConfronto(document.getElementById('confHome').value, document.getElementById('confAway').value),
   previa4: () => renderPrevia4(...previa4Sel()),
+  chances: renderChances,
 };
 
 function populateJogoSelect(){
@@ -904,6 +1057,7 @@ function draw(){
   document.getElementById('btnConfSwap').hidden = tipo !== 'confronto';
   ['pvDestaqueField', 'pvSec1Field', 'pvSec2Field', 'pvSec3Field'].forEach(
     id => { document.getElementById(id).hidden = tipo !== 'previa4'; });
+  document.getElementById('chancesField').hidden = tipo !== 'chances';
   currentResult = RENDERERS[tipo]();
   document.getElementById('cardbox').innerHTML = currentResult.svg;
   document.getElementById('cardMeta').textContent = `1200×675px · ${currentResult.name}`;
@@ -971,6 +1125,7 @@ document.getElementById('confAway').addEventListener('change', draw);
 document.getElementById('btnConfSwap').addEventListener('click', swapConfronto);
 ['pvDestaque', 'pvSec1', 'pvSec2', 'pvSec3'].forEach(
   id => document.getElementById(id).addEventListener('change', draw));
+document.getElementById('chancesSelect').addEventListener('change', () => { enforceChancesLimit(); draw(); });
 document.getElementById('btnRefresh').addEventListener('click', draw);
 document.getElementById('btnDown').addEventListener('click', download);
 document.getElementById('btnReroll').addEventListener('click', rerollCaption);
@@ -978,6 +1133,7 @@ document.getElementById('btnReroll').addEventListener('click', rerollCaption);
 populateJogoSelect();
 populateConfrontoSelects();
 populatePrevia4Selects();
+populateChancesSelect();
 draw();
 </script>
 </body>

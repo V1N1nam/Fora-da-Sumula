@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Fora da Súmula — inteligência do Brasileirão</title>
+<title>Fora da Súmula, inteligência do Brasileirão</title>
 <meta name="description" content="Probabilidade de título, G4 e rebaixamento de cada clube do Brasileirão, com força por Elo e 10 mil simulações do restante da temporada.">
 <meta name="theme-color" content="#F1F2EF" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0B0E10" media="(prefers-color-scheme: dark)">
@@ -786,7 +786,7 @@ document.documentElement.dataset.theme=t;}catch(e){document.documentElement.data
   <h2 class="sec">Ritmo do líder</h2>
   <div class="chart" id="ritmoChart"></div>
   <p class="note">Pontos acumulados de quem lidera a tabela, rodada a rodada. As linhas
-    claras são as temporadas anteriores; a atual aparece em destaque — dá pra ver se
+    claras são as temporadas anteriores; a atual aparece em destaque, dá pra ver se
     esse Brasileirão está mais apertado ou mais folgado que os últimos.</p>
 </section>
 
@@ -816,7 +816,7 @@ document.documentElement.dataset.theme=t;}catch(e){document.documentElement.data
     <span><i style="background:var(--red)"></i> 17º–20º · Z4 (rebaixamento)</span>
   </div>
   <p class="note">Clubes têm número de jogos diferente porque partidas adiadas ainda
-    não foram remarcadas — a coluna <b>J</b> mostra quantos cada um já fez.
+    não foram remarcadas. A coluna <b>J</b> mostra quantos cada um já fez.
     O critério de desempate mostrado é o da fonte (pontos, depois saldo).</p>
 </section>
 
@@ -836,7 +836,7 @@ document.documentElement.dataset.theme=t;}catch(e){document.documentElement.data
   <h2 class="sec">Acima e abaixo do esperado</h2>
   <div class="rank" id="sorteList"></div>
   <p class="note">Cada partida vale uma fração de ponto pela chance que o modelo dava
-    de vitória, empate e derrota <b>antes de a bola rolar</b> — a soma disso na
+    de vitória, empate e derrota <b>antes de a bola rolar</b>, a soma disso na
     temporada é o esperado. Quem está acima fez mais pontos do que a força dos
     adversários sugeria; quem está abaixo, menos. Isso mede sorte contra a força do
     adversário, não contra a qualidade das chances criadas.</p>
@@ -887,8 +887,8 @@ document.documentElement.dataset.theme=t;}catch(e){document.documentElement.data
   <p class="note">A barra cheia é a chance na rodada atual; o traço vertical marca onde
     o clube estava na rodada passada. A seta ao lado mostra a variação em pontos
     percentuais. Clubes com chance abaixo de 0,5% aparecem como “—”.</p>
-  <p class="note" id="clubesAvisoVaga" hidden>Essas faixas contam só a posição final na tabela —
-    ignoram a vaga extra que a Copa do Brasil e a própria Libertadores dão aos seus campeões
+  <p class="note" id="clubesAvisoVaga" hidden>Essas faixas contam só a posição final na tabela.
+    Ignoram a vaga extra que a Copa do Brasil e a própria Libertadores dão aos seus campeões
     (que podem terminar fora da faixa aqui projetada). Isso pode deslocar a distribuição real
     pra baixo. Não temos dado dessas duas competições no pipeline pra corrigir a conta.</p>
 </section>
@@ -983,7 +983,7 @@ document.documentElement.dataset.theme=t;}catch(e){document.documentElement.data
     <p class="eyebrow"><span>Você contra o modelo</span></p>
     <h1 id="h-palpite">Seu palpite</h1>
     <p class="lede">Distribua a chance de vitória, empate e derrota como o modelo faz, e veja se
-      você bate o Davidson — em jogos que já aconteceram, ou na próxima rodada, antes da bola rolar.</p>
+      você bate o Davidson, em jogos que já aconteceram, ou na próxima rodada, antes da bola rolar.</p>
   </div>
 
   <div class="btnrow" style="margin-top:var(--s5)">
@@ -1019,7 +1019,7 @@ document.documentElement.dataset.theme=t;}catch(e){document.documentElement.data
       <span class="sn">02</span>
       <h3>O resto da temporada é jogado 10 mil vezes</h3>
       <p>Com as notas dá pra estimar a chance de vitória, empate e derrota em cada jogo
-        que falta. O site sorteia o campeonato inteiro de novo, dez mil vezes — e em
+        que falta. O site sorteia o campeonato inteiro de novo, dez mil vezes, e em
         cada uma delas as notas continuam mudando conforme os resultados sorteados.</p>
       <div class="viz" id="viz2"></div>
     </article>
@@ -1069,7 +1069,7 @@ document.documentElement.dataset.theme=t;}catch(e){document.documentElement.data
   max-width:1180px;margin:0 auto">
   <div class="notice">
     <span><b>Protótipo.</b> Dados reais do modelo, layout em avaliação. Probabilidades
-      vêm de 10 mil simulações por rodada e mudam a cada atualização — não são previsão
+      vêm de 10 mil simulações por rodada e mudam a cada atualização, não são previsão
       de resultado, e sim a contagem de quantos futuros terminam de cada jeito.
       Dados da <a href="https://www.football-data.org" rel="noopener">football-data.org</a>,
       uso não comercial.</span>
@@ -1411,7 +1411,7 @@ function renderCorrida(){
   let swaps = 0;
   for (let i = 1; i < N; i++) if (leaderAt(i) !== leaderAt(i - 1)) swaps++;
   $('#raceNote').innerHTML = swaps
-    ? `O favoritismo trocou de mãos <b>${swaps} ${plural(swaps, 'vez', 'vezes')}</b> nas ${N} rodadas já jogadas. Faltam <b>${REMAINING} ${plural(REMAINING, 'rodada')}</b> — até ${REMAINING * 3} pontos ainda em disputa por clube.`
+    ? `O favoritismo trocou de mãos <b>${swaps} ${plural(swaps, 'vez', 'vezes')}</b> nas ${N} rodadas já jogadas. Faltam <b>${REMAINING} ${plural(REMAINING, 'rodada')}</b>, até ${REMAINING * 3} pontos ainda em disputa por clube.`
     : `O mesmo clube é favorito desde a primeira rodada. Faltam <b>${REMAINING} ${plural(REMAINING, 'rodada')}</b>.`;
 
   renderChanges();
@@ -1478,7 +1478,7 @@ function renderChanges(){
 
   const decided = ORD.filter(k => T[k].titulo_confirmado || T[k].z4_confirmado || T[k].g4_confirmado);
   decided.slice(0, 1).forEach(k => push('Situação definida', k, 'titulo',
-    T[k].titulo_confirmado ? 'Campeão matemático — não perde mais o título em nenhuma simulação.'
+    T[k].titulo_confirmado ? 'Campeão matemático, não perde mais o título em nenhuma simulação.'
       : T[k].z4_confirmado ? 'Rebaixado matematicamente em todas as 10 mil simulações.'
       : 'Já não sai do G4 em nenhuma das 10 mil simulações.'));
 
@@ -1609,7 +1609,7 @@ function renderZebras(){
     `<span class="dv"></span><span>2023 a ${DATA.season}</span>`;
   $('#zebrasAnswer').innerHTML =
     `Toda partida tem uma chance atribuída antes da bola rolar. Estas são as vezes em que
-     o Brasileirão ignorou o modelo com mais folga — a maior delas, o
+     o Brasileirão ignorou o modelo com mais folga, a maior delas, o
      <b>${esc(z0.mandante)} ${esc(z0.placar)} ${esc(z0.visitante)}</b>, tinha
      <b>${pct1(z0.probabilidade)}</b> de acontecer.`;
 
@@ -1641,7 +1641,7 @@ function renderZebras(){
   paintZebras();
   $('#zebrasNote').innerHTML =
     `Escala: <b>absurda</b> abaixo de 16%, <b>muito improvável</b> entre 16% e 19%,
-     <b>improvável</b> acima disso — a probabilidade é a que o modelo dava ao placar que de fato
+     <b>improvável</b> acima disso, a probabilidade é a que o modelo dava ao placar que de fato
      aconteceu, com o rating dos dois times na véspera do jogo. Como todo jogo tem três
      resultados possíveis e o empate segura uma fatia grande, é raro qualquer desfecho ficar
      abaixo de 15%: estes ${DATA.zebras.length} são o topo de
@@ -1800,7 +1800,7 @@ function paintTeam(k){
     tip: i => `<div class="th">Rodada ${R[i]}</div><div class="tr"><span class="nm">Força</span><b>${Math.round(t.rating[i])}</b></div>`
   });
   $('#teamRatingNote').innerHTML = `Começou o ano com ${Math.round(t.rating[0])} e está em
-    <b>${Math.round(t.rating[LAST])}</b> — ${Math.abs(dRating) < 5 ? 'praticamente onde começou' :
+    <b>${Math.round(t.rating[LAST])}</b>, ${Math.abs(dRating) < 5 ? 'praticamente onde começou' :
       (dRating > 0 ? `<b style="color:var(--accent)">${sgn(Math.round(dRating))}</b> desde a rodada 1` :
         `<b style="color:var(--red)">${sgn(Math.round(dRating))}</b> desde a rodada 1`)}.
     A média da liga é 1500.`;
@@ -1819,7 +1819,7 @@ function paintTeam(k){
     <div class="kv"><span class="kk">Recorde de vitórias seguidas</span><span class="kvv">${t.seq_vitorias_recorde}</span></div>
     <p class="body" style="margin-top:var(--s4);font-size:14px">${inv} ${win}</p>
     <p class="note" style="margin-top:var(--s2)">Sequências contam jogos de Série A desde 2023 e
-      <b>não zeram na virada da temporada</b> — por isso vêm sempre com a data de início.</p>`;
+      <b>não zeram na virada da temporada</b>, por isso vêm sempre com a data de início.</p>`;
 
   /* mando — regra de amostra pequena preservada */
   if (t.mando_temporadas < 3){
@@ -1987,7 +1987,7 @@ function h2hBlock(hk, ak){
   const rec = DATA.h2h[a + '_' + b];
   if (!rec) return `<p class="note">Nunca se enfrentaram na Série A desde 2023.</p>`;
   if (rec.jogos < 4) return `<p class="note">Poucos confrontos recentes entre os dois
-    (${rec.jogos} ${plural(rec.jogos, 'jogo')} desde 2023) — amostra pequena demais pra detalhar retrospecto.</p>`;
+    (${rec.jogos} ${plural(rec.jogos, 'jogo')} desde 2023), amostra pequena demais pra detalhar retrospecto.</p>`;
   const hIsA = (+hk) === rec.a, vh = hIsA ? rec.va : rec.vb, vv = hIsA ? rec.vb : rec.va;
   return `<p class="note">Retrospecto desde 2023 (${rec.jogos} jogos): <b>${vh}</b>
     ${plural(vh, 'vitória')} do ${nm(hk)}, <b>${rec.empates}</b> ${plural(rec.empates, 'empate')},
@@ -2302,7 +2302,7 @@ function ppMontarPassadas(host){
       <div id="ppRevela1"></div>
     </div>
     <div class="card" id="ppFim1" hidden style="margin-top:var(--s5)"></div>
-    <p class="note" style="margin-top:var(--s4)">Quatro jogos sorteados a partir da data de hoje —
+    <p class="note" style="margin-top:var(--s4)">Quatro jogos sorteados a partir da data de hoje,
       todo mundo que jogar hoje pega os mesmos quatro. Sua pontuação é a probabilidade que você deu
       ao que aconteceu: deu 52% à vitória do mandante e o mandante venceu, são 52 pontos. O modelo
       joga com a mesma régua.</p>`;
@@ -2450,7 +2450,7 @@ function ppMontarProxima(host){
   if (salvo){ ppResultado2(host, salvo); return; }
 
   if (!DATA.palpite.proxima.length){
-    host.innerHTML = `<div class="card"><p class="note">Não há jogos agendados no momento —
+    host.innerHTML = `<div class="card"><p class="note">Não há jogos agendados no momento,
       a temporada pode ter terminado ou o calendário da próxima rodada ainda não foi divulgado.</p></div>`;
     return;
   }
@@ -2620,7 +2620,7 @@ function ppDesenharImpacto(out, depois, ms){
   out.innerHTML = `
     <div class="pp-aviso">
       <span class="marca">Atenção</span>
-      <p>Isso não é o que o modelo prevê — é o que aconteceria SE a rodada saísse do seu jeito.</p>
+      <p>Isso não é o que o modelo prevê, é o que aconteceria SE a rodada saísse do seu jeito.</p>
     </div>
     <div class="pp-resumoSim" style="margin-top:var(--s5)">
       <span><b>${NSIM.toLocaleString('pt-BR')}</b> simulações do restante da temporada em
@@ -2656,7 +2656,7 @@ function ppDesenharImpacto(out, depois, ms){
         }).join('')}
       </div>
     </div>
-    <p class="note" style="margin-top:var(--s4)">Barra cinza é variação <b>dentro do ruído</b> — abaixo
+    <p class="note" style="margin-top:var(--s4)">Barra cinza é variação <b>dentro do ruído</b>, abaixo
       de 1,5 ponto percentual, a diferença não se distingue da aleatoriedade entre duas rodadas de
       Monte Carlo. ${forte.length} clube${forte.length === 1 ? '' : 's'} se move${forte.length === 1 ? '' : 'm'}
       acima desse piso.</p>`;

@@ -1,40 +1,40 @@
-# CLAUDE.md — Fora da Súmula
+# CLAUDE.md, Fora da Súmula
 
 ## O que é
 Site de probabilidade e estatística do Brasileirão. Elo + Davidson
 para empate + Monte Carlo, calibrado e validado contra 2023-2025.
-NÃO é hub de estatística avançada (xG, posse, passe) — essa ideia
+NÃO é hub de estatística avançada (xG, posse, passe). Essa ideia
 foi descartada por falta de fonte gratuita estável. Ver
 "Fontes descartadas" abaixo antes de sugerir qualquer API nova.
 
-## Regras que já foram violadas uma vez — não repetir
+## Regras que já foram violadas uma vez, não repetir
 
 - **Nunca contornar proteção anti-bot.** FBref e ESPN bloquearam
   o projeto por scraping/IP de datacenter. Não sugerir Selenium,
   undetected-chromedriver, proxy, ou qualquer bypass.
 - **Rating usado em cada jogo é sempre o vigente NA DATA do jogo**,
   nunca o rating final/atual. Já causou bug real no xpts_forca e
-  no zebras — sempre processar em ordem cronológica. Hoje isso é
+  no zebras. Sempre processar em ordem cronológica. Hoje isso é
   garantido pelo `match_ratings` de `derived.py` (rating pré-jogo,
   ordem cronológica contínua, sem resetar entre temporadas):
   métrica nova que percorra jogos deve consumir ele, não recalcular.
 - **"Próxima rodada" nunca é `matchday.min()` entre agendados.**
   Jogos adiados (POSTPONED) sem nova data quebram isso. Sempre
   filtrar por `utc_date >= cutoff`, nunca por número de rodada
-  cru. Bug real, corrigido em dois lugares — e continuam sendo só
+  cru. Bug real, corrigido em dois lugares, e continuam sendo só
   dois: `build_form_and_next` (build_site.py:100) e
   `zebra_provavel_proxima_rodada` (derived.py:502). O terceiro
   consumidor, `build_proxima_rodada` (build_site.py:387), lê o
-  parquet que o derived já gerou e herda o corte correto — não
+  parquet que o derived já gerou e herda o corte correto. Não
   duplique a lógica lá. Checar se apareceu um quarto lugar antes
   de adicionar feature nova de "próximo jogo".
 - **`status_raw` da API é inconsistente** (já veio com timestamp
   no lugar do enum). Nunca confiar só nele para decisão de "jogo
-  encerrado" — usar `score.fullTime` preenchido como critério.
+  encerrado". Usar `score.fullTime` preenchido como critério.
   O `ingest.py` já faz isso, guarda `status_raw` ao lado só para
   auditoria, e marca `status_anomalo`; `_report_anomalias()` avisa
   se a taxa passar de 20% (sinal de que a API mudou de comportamento).
-- **`Path.read_text()` não aceita `newline=`** — já causou falha
+- **`Path.read_text()` não aceita `newline=`**, já causou falha
   real no Actions. É argumento de `open()`, não de `read_text()`;
   o parâmetro só existe em `read_text()` a partir do Python 3.13 e
   o workflow roda **3.12**. `write_text(..., newline="\n")` é
@@ -43,8 +43,8 @@ foi descartada por falta de fonte gratuita estável. Ver
 ## Fonte de dados
 
 - **football-data.org** (plano grátis) é a fonte principal.
-  Cobre só placar, rodada, tabela — SEM xG, posse, passe,
-  escalação. Uso "não comercial" no free tier — se o site algum
+  Cobre só placar, rodada, tabela. SEM xG, posse, passe,
+  escalação. Uso "não comercial" no free tier. Se o site algum
   dia tiver anúncio, assinatura, ou patrocínio pago vinculado ao
   conteúdo dele, reavaliar com eles antes. O rodapé do site
   ("Uso não comercial") depende disso continuar verdade.
@@ -53,12 +53,12 @@ foi descartada por falta de fonte gratuita estável. Ver
   anteriores ficam congeladas e não geram request.
 - **dadosfutebol.com.br** (R$99/mês, ainda não assinado) tem
   estatística avançada real (posse, xG, escalação, eventos),
-  fonte SofaScore por trás. Cogitado, não contratado — critério
+  fonte SofaScore por trás. Cogitado, não contratado. Critério
   de quando assinar: 10 mil seguidores no TikTok com views
   consistentes (é a única das redes com RPM documentado e
   alcançável no Brasil).
 
-## Fontes descartadas — não sugerir de novo
+## Fontes descartadas, não sugerir de novo
 
 FBref (Cloudflare), ESPN API interna (Akamai bloqueia
 datacenter), Sportmonks (€48+/mês), API-Football (sem xG),
@@ -68,7 +68,7 @@ busca, não API), Big Balls Data (não cobre Brasil), StatsHub
 (enterprise, sem self-service).
 
 **Resíduo da era FBref:** `config.py` teve `SHOT_SCRAPE_DELAY`,
-`BIG_CHANCE_XG` e `MAX_GOALS` — sobras da ideia de xG, nunca lidas
+`BIG_CHANCE_XG` e `MAX_GOALS`, sobras da ideia de xG, nunca lidas
 por módulo nenhum. Removidos. Não recriar: não existe pipeline de
 chute/xG, e constante órfã em `config.py` só faz parecer que existe.
 
@@ -77,74 +77,74 @@ chute/xG, e constante órfã em `config.py` só faz parecer que existe.
 Avaliado em 2026-09-11, **não integrado**. Objetivo era saber se
 vale estender o histórico do Elo antes de 2023 (a football-data.org
 bloqueia 2020-2022 no plano grátis) usando `brazil/2020_br1.txt` do
-[openfootball/south-america](https://github.com/openfootball/south-america)
-— formato `.txt` próprio (não é o `football.json` das ligas
+[openfootball/south-america](https://github.com/openfootball/south-america),
+formato `.txt` próprio (não é o `football.json` das ligas
 europeias), 380 partidas de 2020 com placar completo, pasta do
 Brasil atualizada semanalmente (não é repo parado).
 
-**Testes rodados** (fora do pipeline, script descartável — nada
+**Testes rodados** (fora do pipeline, script descartável, nada
 disso está commitado como módulo):
 
-1. *"5º split"* — 20 jogos de 2020 colhidos à mão, avaliados com
+1. *"5º split"*, 20 jogos de 2020 colhidos à mão, avaliados com
    rating aquecido em 2023-2025 (mesma lógica leave-one-out do
    `calibrate_elo.py`). log-loss 1.0513 vs. média oficial dos 3
-   splits 1.0308 ± 0.0125 (desvio já documentado: 0.0184) — ficou
+   splits 1.0308 ± 0.0125 (desvio já documentado: 0.0184), ficou
    **fora** da faixa, mas o teste é confundido: rating de 2023-2025
    não é uma boa proxy da força dos times *em 2020* (elenco troca
    muito em 3-5 anos), então a diferença pode ser só "time mudou de
    força", não "a liga mudou de padrão". Amostra de 20 jogos também
    é pequena demais pra separar as duas hipóteses.
-2. *Walk-forward dentro da própria temporada* — as 380 partidas de
+2. *Walk-forward dentro da própria temporada*, as 380 partidas de
    2020 completas, rating começando flat em 1500 **sem nenhuma
    mistura com rating de 2023+** (isola o confundidor do teste 1).
    Cortando a primeira metade (efeito de "chute inicial" com rating
    ainda não convergido, o mesmo problema que qualquer split tem no
    início) e olhando só o returno (jogos 191-380, rating já rodou
    190 partidas): log-loss **1.0358** (diferença de +0.0050 sobre a
-   média oficial — **dentro** da faixa de ruído de 0.0184) e taxa de
+   média oficial, **dentro** da faixa de ruído de 0.0184) e taxa de
    empate prevista 26.3% vs. real 25.8% (praticamente em cima). Com
    a temporada inteira incluindo o chute inicial: log-loss 1.0548
-   (+0.0240, fora da faixa — mas isso é viés de aquecimento, não
+   (+0.0240, fora da faixa, mas isso é viés de aquecimento, não
    sinal de mudança de padrão).
 
 **Conclusão do teste 2 (o mais limpo): o modelo generaliza bem pra
-2020** uma vez removido o viés de aquecimento — não há sinal de que
+2020** uma vez removido o viés de aquecimento. Não há sinal de que
 o Brasileirão mudou de padrão (mais empate, mando diferente) entre
 2020 e 2023-2025 a ponto de justificar recalibração.
 
 **Decisão: não escrever o parser do `.txt` nem o mapa de
 reconciliação de nome→`team_id` agora**, mesmo com o resultado
 limpo. O risco real não é se o modelo generaliza (já testado, gerou
-não) — é o mapa nome→`team_id` feito à mão errando **em silêncio**:
+não), é o mapa nome→`team_id` feito à mão errando **em silêncio**:
 fundir dois clubes homônimos, perder um rebranding de patrocínio
 (ex.: "Red Bull Bragantino" vs. o nome que a football-data.org usa
 hoje), ou um trema/acento divergente que quebra o join sem lançar
 erro nenhum. Validar essa reconciliação direito é um projeto à
 parte, não uma tarde de trabalho, e só compensa se o site crescer a
-ponto de precisar de calibração mais robusta de verdade — não por
+ponto de precisar de calibração mais robusta de verdade, não por
 curiosidade acadêmica de saber se generaliza. Item de backlog no
 `README.md` ("Histórico pré-2023 via openfootball/south-america").
 
 ## Calibração do modelo (não recalibrar sem motivo)
 
-K=20, HFA=65, ν(Davidson)=0.7404522613065327 — escolhidos por
+K=20, HFA=65, ν(Davidson)=0.7404522613065327, escolhidos por
 robustez (platô no grid search), não por argmin. O argmin era
 K=32/HFA=110, mas o ganho de log-loss (0.0076) ficou abaixo do
 desvio entre splits (0.0184), e o HFA estimado direto dos dados
-deu 79 — perto de 65, longe de 110.
+deu 79, perto de 65, longe de 110.
 
 Se recalibrar, o que **não** precisa de trabalho manual: os
 números do painel "Como funciona" e do simulador de confronto no
 JS. Eles são injetados no build a partir de `config.py`, na linha
 `const HFA=..., NU=..., ELO_K=..., NSIM=...; /*__ELO__*/` do
 template (`fora-da-sumula-v3.html`), substituída por
-`build_site.render()` — que dá `assert` se a sentinela sumir.
+`build_site.render()`, que dá `assert` se a sentinela sumir.
 Não hardcode esses valores no template.
 
 O que **continua manual** depois de recalibrar: propagar o
-resultado de `validate_elo.py` — ver a regra abaixo.
+resultado de `validate_elo.py`. Ver a regra abaixo.
 
-## Resultado de validate_elo.py mora em dois lugares — atualizar os dois no mesmo commit
+## Resultado de validate_elo.py mora em dois lugares, atualizar os dois no mesmo commit
 
 `src/validate_elo.py` é manual (não está no Actions) e roda quando
 K, HFA, ν ou o bootstrap de placar de `elo.py` mudarem. O número
@@ -152,13 +152,13 @@ que ele imprime é copiado à mão para **dois** lugares, e nada no
 build compara um com o outro:
 
 1. `const V = {sim, lo, hi, reais}` em
-   `fora-da-sumula-v3.html:1901` — desenha a faixa de validação da
+   `fora-da-sumula-v3.html:1901`, desenha a faixa de validação da
    ficha. É a única coisa daquela seção que não vem do payload.
 2. A tabela da seção "Limitações conhecidas" do `README.md`.
 
 **Sempre que `validate_elo.py` rodar de novo com resultado
 diferente, os dois vão no mesmo commit.** Não existe sentinela,
-assert ou teste que pegue divergência aqui — ao contrário de
+assert ou teste que pegue divergência aqui, ao contrário de
 `/*__ELO__*/` e `/*__DATA__*/`, que quebram o build alto se
 sumirem. Se só um for atualizado, README e site passam a afirmar
 validações diferentes do mesmo modelo, em silêncio, e a única
@@ -177,14 +177,14 @@ commita `data/` e `docs/`.
 `build_site.py` gera **duas** saídas do mesmo payload:
 `docs/index.html` (site) e `docs/export/index.html` (ferramenta
 interna de export de imagem pra redes). Mudança no formato do
-payload pode quebrar a segunda em silêncio — conferir as duas.
+payload pode quebrar a segunda em silêncio. Conferir as duas.
 
 ## Convenções
 
 - Comentários e nomes de coluna em português informal, código em
   inglês/padrão.
 - Todo card/manchete no site é gerado do dado, nunca escrito à
-  mão — mesmo texto de legenda de rede social usa template com
+  mão. Mesmo texto de legenda de rede social usa template com
   variação, sem LLM.
 - Regra de amostra pequena: métrica com menos de 3-4
   temporadas/jogos de base não aparece com a mesma confiança

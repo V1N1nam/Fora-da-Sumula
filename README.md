@@ -173,8 +173,8 @@ rating herdado de 2023-2024 -- não de 1500 flat):
 
 | métrica | desvio simulado (média, intervalo 5-95% entre réplicas) | desvio real |
 | --- | --- | --- |
-| pontos | 11.68 `[8.86, 14.57]` | 2023: 12.14 · 2024: 13.23 · 2025: 14.34 — **as 3 dentro do intervalo simulado** |
-| saldo de gols | 13.7 `[10.3, 17.3]` | 2025: 22.0 — **fora do intervalo simulado** |
+| pontos | 11.68 `[8.86, 14.57]` | 2023: 12.14 · 2024: 13.23 · 2025: 14.34, **as 3 dentro do intervalo simulado** |
+| saldo de gols | 13.7 `[10.3, 17.3]` | 2025: 22.0, **fora do intervalo simulado** |
 
 Razão do desvio simulado sobre o real: **0.81 para pontos** (validado
 contra as 3 temporadas fechadas, sem compressão) e **0.62 para saldo de
@@ -238,7 +238,7 @@ avisa no log -- pode ser sinal de mudança de comportamento da API.
   Recupera a correlação entre desequilíbrio de força e tamanho da
   goleada sem esvaziar a amostra em baldes pequenos.
 - **Histórico pré-2023 via `openfootball/south-america`** (não
-  implementado, avaliado em 2026-09-11 — ver `CLAUDE.md`). Testes
+  implementado, avaliado em 2026-09-11, ver `CLAUDE.md`). Testes
   de log-loss mostraram que o modelo generaliza bem pra 2020, mas o
   trabalho real (parser do `.txt` + reconciliação manual de
   nome→`team_id` sem erro silencioso) só compensa se o site crescer

@@ -1105,6 +1105,18 @@ const REDUCED = typeof matchMedia === 'function' && matchMedia('(prefers-reduced
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const pct = v => Math.round(v * 100) + '%';
 const pct1 = v => (v * 100).toFixed(1).replace('.', ',') + '%';
+/* maior-resto (largest remainder): arredonda os 3 valores de uma tripla
+   V/E/D pra baixo e distribui o que falta pra 100 entre os que tem maior
+   parte fracionaria descartada. Sem isso, tres Math.round independentes
+   as vezes somam 99 ou 101 na tela (o calculo interno continua exato,
+   isso e so a camada de exibicao). v chega em escala 0-100. */
+function maiorResto(v){
+  const base = v.map(Math.floor);
+  const falta = 100 - base.reduce((a, b) => a + b, 0);
+  const ordem = v.map((x, i) => ({i, f: x - Math.floor(x)})).sort((a, b) => b.f - a.f);
+  for (let n = 0; n < falta; n++) base[ordem[n % 3].i]++;
+  return base;
+}
 const dec = (v, d = 1) => v.toFixed(d).replace('.', ',');
 const sgn = v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v);
 /* versao decimal: recebe numero e formata com virgula (sgn com string dava NaN) */
@@ -1966,12 +1978,13 @@ function paintVs(){
   }
   const C = palette();
   const [h, d, a] = confronto(T[hk].rating[LAST], T[ak].rating[LAST]);
+  const [ph, pd, pa] = maiorResto([h, d, a].map(x => x * 100));
   const seg = (w, col, txt) => `<div style="background:${col}" data-w="${(w * 100).toFixed(1)}%">${w > 0.11 ? txt : ''}</div>`;
   const row = (lbl, l, r) => `<div class="mstat"><span class="ml">${l}</span><span class="mc">${lbl}</span><span class="mr">${r}</span></div>`;
   const th = T[hk], ta = T[ak];
   out.innerHTML = `
-    <div class="odds" role="img" aria-label="${nm(hk)} ${pct(h)}, empate ${pct(d)}, ${nm(ak)} ${pct(a)}">
-      ${seg(h, C.accent, pct(h))}${seg(d, C.ink2, pct(d))}${seg(a, C.blue, pct(a))}</div>
+    <div class="odds" role="img" aria-label="${nm(hk)} ${ph}%, empate ${pd}%, ${nm(ak)} ${pa}%">
+      ${seg(h, C.accent, ph + '%')}${seg(d, C.ink2, pd + '%')}${seg(a, C.blue, pa + '%')}</div>
     <div class="oddleg"><span>${nm(hk)} em casa</span><span>empate</span><span>${nm(ak)}</span></div>
     <div style="margin-top:var(--s5)">
       ${row('posição', th.real_position + 'º', ta.real_position + 'º')}
@@ -2051,14 +2064,7 @@ function criarBarras(host, opts){
     const t = v.reduce((a, b) => a + b, 0);
     return t > 0 ? v.map(x => x / t * 100) : [100 / 3, 100 / 3, 100 / 3];
   }
-  /* maior-resto: os tres inteiros exibidos somam sempre 100 */
-  function inteiros(v){
-    const base = v.map(Math.floor);
-    const falta = 100 - base.reduce((a, b) => a + b, 0);
-    const ordem = v.map((x, i) => ({i, f: x - Math.floor(x)})).sort((a, b) => b.f - a.f);
-    for (let n = 0; n < falta; n++) base[ordem[n % 3].i]++;
-    return base;
-  }
+  const inteiros = maiorResto;
   /* i e sempre 0 (vitoria) ou 2 (derrota). O teto de i e o que sobra
      depois da outra barra arrastavel -- nao e um teto fixo de 100,
      entao ele muda conforme a outra barra se move. Empate (1) nunca
@@ -2335,10 +2341,10 @@ function ppMontarJogo1(){
 }
 function ppConfirmar1(){
   const st = ppSeqPassadas, j = st.jogos[st.atual];
-  const v = st.barras.valores();
-  const m = confronto(j.rc, j.rf).map(x => x * 100);
+  const v = maiorResto(st.barras.valores());
+  const m = maiorResto(confronto(j.rc, j.rf).map(x => x * 100));
   const i = PP_IDX[j.res];
-  const pv = Math.round(v[i]), pm = Math.round(m[i]);
+  const pv = v[i], pm = m[i];
   st.barras.travar(true);
   $('#ppAcao1').innerHTML = '';
   st.respostas.push({jogo: j, v, m, pv, pm});
@@ -2361,11 +2367,11 @@ function ppConfirmar1(){
         ${nomes.map((n, k) => `<div class="cab ${k === i ? 'venc' : ''}">${esc(n)}</div>`).join('')}
         <div class="rot">Você</div>
         ${v.map((x, k) => `<div class="${k === i ? 'venc' : ''}"><span class="vv"
-           style="color:${k === i ? 'var(--accent)' : 'var(--ink-2)'}">${Math.round(x)}%</span>
+           style="color:${k === i ? 'var(--accent)' : 'var(--ink-2)'}">${x}%</span>
            ${k === i ? '<div class="chip">aconteceu</div>' : ''}</div>`).join('')}
         <div class="rot">Modelo</div>
         ${m.map((x, k) => `<div class="${k === i ? 'venc' : ''}"><span class="vv"
-           style="color:var(--ink-3)">${Math.round(x)}%</span></div>`).join('')}
+           style="color:var(--ink-3)">${x}%</span></div>`).join('')}
       </div>
       <div class="pp-veredito" style="border-left:3px solid ${classe === 'ok' ? 'var(--accent)' : classe === 'meio' ? 'var(--amber)' : 'var(--red)'}">
         <span class="big" style="color:${classe === 'ok' ? 'var(--accent)' : classe === 'meio' ? 'var(--amber)' : 'var(--red)'}">+${pv}</span>
@@ -2522,8 +2528,8 @@ function ppResultado2(host, salvo){
         atualizar com os placares da rodada, esta tela vira o resumo de acertos sozinha.</p>
       <div class="pp-lista" style="margin-top:var(--s4)">
         ${salvo.palpites.map(p => {
-          const m = confronto(p.rc, p.rf).map(x => Math.round(x * 100));
-          const v = p.v.map(Math.round);
+          const m = maiorResto(confronto(p.rc, p.rf).map(x => x * 100));
+          const v = maiorResto(p.v);
           return `<div class="pp-lin simples">
             <span class="jg">${esc(p.casa)} <span style="color:var(--ink-4)">×</span> ${esc(p.fora)}</span>
             <span class="tri"><b>${v.join('/')}</b> · modelo ${m.join('/')}</span></div>`;
@@ -2544,9 +2550,10 @@ function ppResultado2(host, salvo){
 function ppResolvido2(host, salvo){
   const linhas = salvo.palpites.map(p => {
     const g = DATA.palpite.pool.find(x => x.id === p.id);
-    const m = confronto(p.rc, p.rf).map(x => x * 100);
+    const m = maiorResto(confronto(p.rc, p.rf).map(x => x * 100));
+    const v = maiorResto(p.v);
     const i = PP_IDX[g.res];
-    return {p, g, pv: Math.round(p.v[i]), pm: Math.round(m[i])};
+    return {p, g, pv: v[i], pm: m[i]};
   });
   const pv = linhas.reduce((a, l) => a + l.pv, 0), pm = linhas.reduce((a, l) => a + l.pm, 0);
   const grid = linhas.map(l => ppQuadrado(l.pv)).join('');

@@ -139,7 +139,17 @@ const FSERIF = '"Instrument Serif", Georgia, serif';
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const pct1 = v => (v * 100).toFixed(1).replace('.', ',') + '%';
-const pct0 = v => Math.round(v * 100) + '%';
+/* maior-resto (largest remainder): mesma logica do simulador do site
+   (fora-da-sumula-v3.html). Garante que os 3 percentuais V/E/D de um
+   card sempre somem 100 na tela, mesmo quando o arredondamento
+   independente de cada um daria 99 ou 101. v chega em escala 0-100. */
+function maiorResto(v){
+  const base = v.map(Math.floor);
+  const falta = 100 - base.reduce((a, b) => a + b, 0);
+  const ordem = v.map((x, i) => ({i, f: x - Math.floor(x)})).sort((a, b) => b.f - a.f);
+  for (let n = 0; n < falta; n++) base[ordem[n % 3].i]++;
+  return base;
+}
 const MESES_C = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
 const fmtShort = iso => { const [,m,d] = iso.split('-'); return `${+d} ${MESES_C[+m-1]}`; };
 
@@ -589,6 +599,7 @@ function renderConfronto(hk, ak){
   }
   const th = T[hk], ta = T[ak];
   const [h, d, a] = confrontoProb(th.forca, ta.forca);
+  const [ph, pd, pa] = maiorResto([h, d, a].map(x => x * 100));
 
   const barX = 56, barY = 268, barW = 680, barH = 190, rx = 18;
   const wH = Math.round(barW * h), wD = Math.round(barW * d), wA = barW - wH - wD;
@@ -638,9 +649,9 @@ function renderConfronto(hk, ak){
 
     <clipPath id="confBarClip"><rect x="${barX}" y="${barY}" width="${barW}" height="${barH}" rx="${rx}"/></clipPath>
     <g clip-path="url(#confBarClip)">
-      ${seg(barX, wH, C.accent, 'CASA', pct0(h))}
-      ${seg(xD, wD, C.ink2, 'EMPATE', pct0(d))}
-      ${seg(xA, wA, C.blue, 'FORA', pct0(a))}
+      ${seg(barX, wH, C.accent, 'CASA', ph + '%')}
+      ${seg(xD, wD, C.ink2, 'EMPATE', pd + '%')}
+      ${seg(xA, wA, C.blue, 'FORA', pa + '%')}
     </g>
     <text x="56" y="${barY + barH + 30}" font-size="13" fill="${C.ink3}">Chance de cada resultado hoje, pela força atual e o mando de campo.</text>
 
@@ -686,12 +697,13 @@ const PV4_FIXTURES = () => DATA.proxima_rodada || [];
 function pv4MiniBar(id, x, y, w, h, probs, labels){
   const segsW = [Math.round(w * probs[0]), Math.round(w * probs[1]), 0];
   segsW[2] = w - segsW[0] - segsW[1];
+  const pcts = maiorResto(probs.map(x => x * 100));
   const fills = [C.accent, C.ink2, C.blue];
   let out = `<clipPath id="${id}"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="7"/></clipPath><g clip-path="url(#${id})">`;
   const fora = [];
   let cur = x;
   segsW.forEach((sw, i) => {
-    const txt = pct0(probs[i]);
+    const txt = pcts[i] + '%';
     out += `<rect x="${cur}" y="${y}" width="${sw}" height="${h}" fill="${fills[i]}"/>`;
     if (sw >= txt.length * 8.4 + 12){
       out += `<text x="${cur + sw / 2}" y="${y + h / 2 + 5}" text-anchor="middle" font-size="13.5" font-weight="700" fill="${C.onAccent}">${txt}</text>`;
@@ -747,6 +759,7 @@ function renderPrevia4(destIdx, secIdx){
   }
 
   const [h, d, a] = destP.probs;
+  const [ph, pd, pa] = maiorResto([h, d, a].map(x => x * 100));
   const nh = dest.mandante, na = dest.visitante;
 
   /* -------- jogo em destaque -------- */
@@ -783,9 +796,9 @@ function renderPrevia4(destIdx, secIdx){
     <text x="600" y="${boxY + 76}" text-anchor="middle" font-size="13" font-weight="600" fill="${C.ink4}">${esc(fmtShort(dest.data))}</text>
     <clipPath id="pv4BigClip"><rect x="${barX}" y="${barY}" width="${barW}" height="${barH}" rx="14"/></clipPath>
     <g clip-path="url(#pv4BigClip)">
-      ${seg(barX, wH, C.accent, 'CASA', pct0(h))}
-      ${seg(barX + wH, wD, C.ink2, 'EMPATE', pct0(d))}
-      ${seg(barX + wH + wD, wA, C.blue, 'FORA', pct0(a))}
+      ${seg(barX, wH, C.accent, 'CASA', ph + '%')}
+      ${seg(barX + wH, wD, C.ink2, 'EMPATE', pd + '%')}
+      ${seg(barX + wH + wD, wA, C.blue, 'FORA', pa + '%')}
     </g>
     <text x="${ix0}" y="${boxY + boxH - 18}" font-size="12.5" fill="${C.ink3}">Chance de cada resultado pela força atual dos dois e o mando de campo.</text>
   `;

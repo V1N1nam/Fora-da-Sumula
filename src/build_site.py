@@ -45,7 +45,7 @@ OUTPUT = ROOT / "docs" / "index.html"
 # Ferramenta interna de export de imagens pra X -- pagina separada, sem
 # link em nenhum nav do site publico (ver <meta name="robots"> no
 # proprio template). Mesmo mecanismo de sentinela do template
-# principal, payload bem mais enxuto (so o que os 4 tipos de card
+# principal, payload bem mais enxuto (so o que os tipos de card
 # precisam, nao o DATA inteiro).
 EXPORT_TEMPLATE = ROOT / "fora-da-sumula-export.html"
 EXPORT_OUTPUT = ROOT / "docs" / "export" / "index.html"
@@ -615,7 +615,7 @@ def build_headline(data: dict) -> dict:
 
 def build_export_data(data: dict) -> dict:
     """Payload enxuto pro gerador de imagens (fora-da-sumula-export.html):
-    so os 4 tipos de card usam, nao o DATA inteiro do site (que carrega
+    so os tipos de card usam, nao o DATA inteiro do site (que carrega
     historico de titulo/g4/z4/rating por clube, rodada a rodada -- peso
     morto pra quem so quer gerar uma imagem). Derivado do `data` que
     build_data() ja montou, sem reler parquet."""

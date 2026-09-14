@@ -41,6 +41,8 @@ select[multiple] option{padding:4px 6px;border-radius:4px}
 .stage{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:16px;flex:1;min-width:320px}
 .stage .cardbox{width:100%;aspect-ratio:1200/675;border-radius:6px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.15);background:#F1F2EF}
 .stage .cardbox svg{width:100%;height:100%;display:block}
+.stage .cardbox.vertical{aspect-ratio:1080/1920;max-width:340px;margin:0 auto}
+.stage .cardbox canvas{width:100%;height:100%;display:block}
 .meta{margin-top:10px;font-size:12.5px;color:var(--ink-3)}
 .captionBox{margin-top:12px}
 .captionBox .lbl{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
@@ -49,14 +51,14 @@ select[multiple] option{padding:4px 6px;border-radius:4px}
 textarea#caption{width:100%;font:inherit;font-size:13.5px;line-height:1.55;padding:10px 12px;border-radius:8px;
   border:1px solid var(--line);background:var(--surface);color:var(--ink);resize:vertical}
 .dlpreview{max-width:340px}
-.dlpreview img{width:100%;border-radius:6px;border:1px solid var(--line)}
+.dlpreview img,.dlpreview video{width:100%;border-radius:6px;border:1px solid var(--line)}
 .note{background:var(--amber-soft);color:var(--amber);border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:18px}
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>Gerador de imagens — export para X</h1>
-  <div class="sub">Ferramenta de uso interno. Não linkada no site público, não indexada. Formato fixo: 1200×675px (16:9), exportado em 2× (2400×1350px).</div>
+  <div class="sub">Ferramenta de uso interno. Não linkada no site público, não indexada. Imagem: 1200×675px (16:9), exportada em 2× (2400×1350px). Vídeo: 1080×1920px (9:16), ~8s, sem áudio.</div>
 
   <div class="panel">
     <div class="field">
@@ -69,6 +71,7 @@ textarea#caption{width:100%;font:inherit;font-size:13.5px;line-height:1.55;paddi
         <option value="confronto">5 · Confronto entre dois clubes</option>
         <option value="previa4">6 · Prévia da rodada (4 jogos)</option>
         <option value="chances">7 · Chances por clube</option>
+        <option value="video">8 · Vídeo (TikTok/Stories)</option>
       </select>
     </div>
     <div class="field" id="jogoField" hidden>
@@ -110,7 +113,10 @@ textarea#caption{width:100%;font:inherit;font-size:13.5px;line-height:1.55;paddi
 
   <div class="stagearea">
     <div class="stage">
-      <div class="cardbox" id="cardbox"></div>
+      <div class="cardbox" id="cardbox">
+        <div id="svgHost"></div>
+        <canvas id="videoCanvas" width="1080" height="1920" hidden></canvas>
+      </div>
       <div class="meta" id="cardMeta"></div>
       <div class="captionBox">
         <div class="lbl"><span>Legenda sugerida (copie e ajuste)</span><button type="button" id="btnReroll">sortear outra</button></div>
@@ -118,8 +124,9 @@ textarea#caption{width:100%;font:inherit;font-size:13.5px;line-height:1.55;paddi
       </div>
     </div>
     <div class="stage dlpreview" id="dlStage" hidden>
-      <div class="meta" style="margin-top:0 0 8px">Imagem gerada. No computador, o download já deve ter começado — se não, ou se estiver no celular, toque e segure (ou clique com o botão direito) na imagem abaixo e escolha "salvar imagem":</div>
+      <div class="meta" id="dlMeta" style="margin-top:0 0 8px">Arquivo gerado. No computador, o download já deve ter começado — se não, ou se estiver no celular, toque e segure (ou clique com o botão direito) e escolha "salvar":</div>
       <img id="dlImg" alt="PNG exportado">
+      <video id="dlVideo" controls playsinline hidden aria-label="Vídeo exportado"></video>
     </div>
   </div>
 </div>
@@ -142,9 +149,32 @@ const C = {
   onAccent:'#08130F',
 };
 const W = 1200, H = 675;
+const VW = 1080, VH = 1920;
 const G4_THRESH = 15;
 const FSANS = 'Archivo, system-ui, sans-serif';
 const FSERIF = '"Instrument Serif", Georgia, serif';
+
+/* mesma curva de easing do growBars do site (--ease:cubic-bezier(.22,.61,.36,1)
+   em fora-da-sumula-v3.html) -- o video nao pode reusar a transicao CSS
+   porque MediaRecorder grava pixel do canvas, nao DOM/CSS, entao a curva e
+   reimplementada aqui (resolvendo o bezier por bissecao) pra manter a mesma
+   sensacao de movimento, só que esticada de 420ms pra alguns segundos */
+function cubicBezierEase(p1x, p1y, p2x, p2y){
+  const bez = (t, a, b) => 3*(1-t)*(1-t)*t*a + 3*(1-t)*t*t*b + t*t*t;
+  return x => {
+    if (x <= 0) return 0;
+    if (x >= 1) return 1;
+    let lo = 0, hi = 1, t = x;
+    for (let i = 0; i < 24; i++){
+      const xEst = bez(t, p1x, p2x);
+      if (Math.abs(xEst - x) < 1e-4) break;
+      if (xEst < x) lo = t; else hi = t;
+      t = (lo + hi) / 2;
+    }
+    return bez(t, p1y, p2y);
+  };
+}
+const growEase = cubicBezierEase(0.22, 0.61, 0.36, 1);
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const pct1 = v => (v * 100).toFixed(1).replace('.', ',') + '%';
@@ -342,6 +372,144 @@ function captionStatus(m){
   }
   partes.push(pick(DISCLAIMERS));
   return partes.join(' ');
+}
+
+/* -------------------- 8. vídeo: virada de chance -------------------- */
+/* mesmo dado do card "status semanal" (DATA.mudancas_semana) -- maior alta
+   de título da semana; se não teve alta (só queda em todos), usa a queda */
+function pickVirada(){
+  const m = DATA.mudancas_semana;
+  if (m.titulo_alta) return {entry: m.titulo_alta, alta: true};
+  if (m.titulo_queda) return {entry: m.titulo_queda, alta: false};
+  return null;
+}
+
+function captionVirada(v){
+  if (!v) return pick(DISCLAIMERS);
+  const mag = Math.abs(v.entry.delta_pp) >= 10 ? 'grande' : 'leve';
+  const linha = v.alta ? pick(CAP_TITULO_ALTA[mag])(v.entry) : pick(CAP_TITULO_QUEDA[mag])(v.entry);
+  return `${linha} ${pick(DISCLAIMERS)}`;
+}
+
+const slugify = s => String(s).toLowerCase()
+  .normalize('NFD').replace(/[̀-ͯ]/g, '')
+  .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+
+function renderVideo(){
+  const v = pickVirada();
+  const name = `virada-chance-${v ? slugify(v.entry.team) : 'sem-dado'}-rodada-${DATA.current_round}`;
+  return {svg: null, video: v, name, caption: captionVirada(v)};
+}
+
+function roundRect(ctx, x, y, w, h, r){
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.arcTo(x+w, y, x+w, y+h, r);
+  ctx.arcTo(x+w, y+h, x, y+h, r);
+  ctx.arcTo(x, y+h, x, y, r);
+  ctx.arcTo(x, y, x+w, y, r);
+  ctx.closePath();
+}
+
+function wrapText(ctx, text, x, y, maxW, lineH){
+  const words = text.split(' ');
+  let line = '', ly = y;
+  words.forEach(word => {
+    const test = line ? line + ' ' + word : word;
+    if (line && ctx.measureText(test).width > maxW){
+      ctx.fillText(line, x, ly);
+      line = word; ly += lineH;
+    } else line = test;
+  });
+  ctx.fillText(line, x, ly);
+  return ly;
+}
+
+/* marca d'água desenhada em TODO frame (não só intro/fim), pra sobreviver
+   a qualquer recorte/print do vídeo em circulação */
+function drawWatermark(ctx){
+  ctx.textAlign = 'right';
+  ctx.fillStyle = C.ink3;
+  ctx.font = '600 26px Archivo, sans-serif';
+  ctx.fillText('foradasumula.com.br', VW - 64, VH - 64);
+  ctx.textAlign = 'left';
+}
+
+/* desenha 1 frame do card "virada de chance" no canvas vertical.
+   progress em [0,1] já passado pelo easing (growEase) por quem chama --
+   aqui só interpola linearmente entre valor da rodada anterior e atual */
+function drawVideoFrame(ctx, v, progress){
+  ctx.clearRect(0, 0, VW, VH);
+  ctx.fillStyle = C.bg;
+  ctx.fillRect(0, 0, VW, VH);
+  ctx.fillStyle = C.accent;
+  ctx.fillRect(0, 0, VW, 10);
+
+  ctx.fillStyle = C.accent;
+  roundRect(ctx, 64, 72, 54, 54, 13); ctx.fill();
+  ctx.fillStyle = C.onAccent;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = '700 26px Archivo, sans-serif';
+  ctx.fillText('FS', 64+27, 72+29);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = C.ink;
+  ctx.font = '700 30px Archivo, sans-serif';
+  ctx.fillText('FORA DA SÚMULA', 132, 108);
+
+  const tagLabel = `RODADA ${DATA.current_round}`;
+  ctx.font = '600 22px Archivo, sans-serif';
+  const tagW = ctx.measureText(tagLabel).width + 40;
+  ctx.fillStyle = C.surface2;
+  roundRect(ctx, VW-64-tagW, 72, tagW, 54, 27); ctx.fill();
+  ctx.strokeStyle = C.line; ctx.lineWidth = 2;
+  roundRect(ctx, VW-64-tagW, 72, tagW, 54, 27); ctx.stroke();
+  ctx.fillStyle = C.ink2;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(tagLabel, VW-64-tagW/2, 72+27);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+
+  if (!v){
+    ctx.fillStyle = C.ink3;
+    ctx.font = '600 34px Archivo, sans-serif';
+    wrapText(ctx, 'Nenhuma virada de chance de título nesta semana.', 64, VH/2, VW-128, 44);
+    drawWatermark(ctx);
+    return;
+  }
+
+  const { entry, alta } = v;
+  const atual = entry.atual_pct;
+  const prev = atual - entry.delta_pp;
+  const color = alta ? C.accent : C.red;
+  const shown = prev + (atual - prev) * progress;
+
+  ctx.fillStyle = C.blue;
+  ctx.font = '700 30px Archivo, sans-serif';
+  ctx.fillText('VIRADA DE CHANCE · TÍTULO', 64, 300);
+
+  ctx.fillStyle = C.ink;
+  ctx.font = '700 80px "Instrument Serif", Georgia, serif';
+  wrapText(ctx, entry.team, 64, 400, VW-128, 86);
+
+  ctx.fillStyle = color;
+  ctx.font = '700 180px "Instrument Serif", Georgia, serif';
+  ctx.fillText(dec1(shown) + '%', 64, 760);
+
+  const barX = 64, barY = 820, barW = VW-128, barH = 40;
+  ctx.fillStyle = C.surface2;
+  roundRect(ctx, barX, barY, barW, barH, 20); ctx.fill();
+  const maxRef = Math.max(atual, prev, 20);
+  const fillW = Math.max(barW * Math.min(shown / maxRef, 1), 6);
+  ctx.fillStyle = color;
+  roundRect(ctx, barX, barY, fillW, barH, 20); ctx.fill();
+
+  if (progress >= 0.999){
+    const sign = entry.delta_pp >= 0 ? '+' : '';
+    ctx.fillStyle = C.ink2;
+    ctx.font = '600 34px Archivo, sans-serif';
+    ctx.fillText(`${sign}${dec1(entry.delta_pp)} p.p. nesta semana`, 64, 906);
+  }
+
+  drawWatermark(ctx);
 }
 
 /* -------------------- 1. prévia da rodada -------------------- */
@@ -1041,6 +1209,7 @@ const RENDERERS = {
   confronto: () => renderConfronto(document.getElementById('confHome').value, document.getElementById('confAway').value),
   previa4: () => renderPrevia4(...previa4Sel()),
   chances: renderChances,
+  video: renderVideo,
 };
 
 function populateJogoSelect(){
@@ -1059,8 +1228,33 @@ function draw(){
     id => { document.getElementById(id).hidden = tipo !== 'previa4'; });
   document.getElementById('chancesField').hidden = tipo !== 'chances';
   currentResult = RENDERERS[tipo]();
-  document.getElementById('cardbox').innerHTML = currentResult.svg;
-  document.getElementById('cardMeta').textContent = `1200×675px · ${currentResult.name}`;
+
+  const cardbox = document.getElementById('cardbox');
+  const svgHost = document.getElementById('svgHost');
+  const canvas = document.getElementById('videoCanvas');
+  const btnDown = document.getElementById('btnDown');
+  const cardMeta = document.getElementById('cardMeta');
+  const isVideo = tipo === 'video';
+
+  cardbox.classList.toggle('vertical', isVideo);
+  svgHost.hidden = isVideo;
+  canvas.hidden = !isVideo;
+
+  if (isVideo){
+    svgHost.innerHTML = '';
+    drawVideoFrame(canvas.getContext('2d'), currentResult.video, 0);
+    cardMeta.textContent = currentResult.video
+      ? `1080×1920px · vídeo vertical · ${currentResult.name}`
+      : 'Sem dado de "o que mudou" nesta semana — nada pra animar ainda.';
+    btnDown.textContent = 'Gravar vídeo (~8s)';
+    btnDown.disabled = !currentResult.video;
+  } else {
+    svgHost.innerHTML = currentResult.svg;
+    cardMeta.textContent = `1200×675px · ${currentResult.name}`;
+    btnDown.textContent = 'Baixar imagem (PNG)';
+    btnDown.disabled = false;
+  }
+
   document.getElementById('caption').value = currentResult.caption || '';
   document.getElementById('dlStage').hidden = true;
 }
@@ -1097,7 +1291,10 @@ function download(){
       URL.revokeObjectURL(url);
       const dataUrl = canvas.toDataURL('image/png');
 
+      document.getElementById('dlVideo').hidden = true;
+      document.getElementById('dlImg').hidden = false;
       document.getElementById('dlImg').src = dataUrl;
+      document.getElementById('dlMeta').textContent = 'Imagem gerada. No computador, o download já deve ter começado — se não, ou se estiver no celular, toque e segure (ou clique com o botão direito) na imagem abaixo e escolha "salvar imagem":';
       document.getElementById('dlStage').hidden = false;
 
       const a = document.createElement('a');
@@ -1118,6 +1315,89 @@ function download(){
   img.src = url;
 }
 
+/* mesma logica de fallback do download() de imagem: mobile (sobretudo
+   Safari/iOS) pode ignorar o atributo `download` em blob: -- por isso o
+   <video controls> fica sempre visivel depois de gravar, pra dar pra
+   segurar e "salvar video" mesmo se o clique automatico no <a> nao salvar
+   nada sozinho. Ainda nao confirmado em iPhone real (pendente); se falhar
+   la, esse e o caminho que sobra. */
+async function recordVideo(){
+  if (!currentResult || !currentResult.video) return;
+
+  const btnDown = document.getElementById('btnDown');
+  const btnRefresh = document.getElementById('btnRefresh');
+  const tipoSel = document.getElementById('tipo');
+  const canvas = document.getElementById('videoCanvas');
+  const ctx = canvas.getContext('2d');
+  const v = currentResult.video;
+
+  const candidates = ['video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
+  const mimeType = window.MediaRecorder ? candidates.find(mt => MediaRecorder.isTypeSupported(mt)) : null;
+  if (!mimeType){
+    alert('Esse navegador não sabe gravar vídeo (MediaRecorder ausente ou sem codec suportado). Tente Chrome ou Safari atualizado.');
+    return;
+  }
+
+  const originalLabel = btnDown.textContent;
+  btnDown.disabled = true; btnRefresh.disabled = true; tipoSel.disabled = true;
+  document.getElementById('dlStage').hidden = true;
+
+  try {
+    await document.fonts.ready;
+
+    const FPS = 30, INTRO_MS = 500, ANIM_MS = 5000, HOLD_MS = 2500;
+    const totalMs = INTRO_MS + ANIM_MS + HOLD_MS;
+
+    const stream = canvas.captureStream(FPS);
+    const rec = new MediaRecorder(stream, {mimeType});
+    const chunks = [];
+    rec.ondataavailable = e => { if (e.data && e.data.size > 0) chunks.push(e.data); };
+    const stopped = new Promise(resolve => { rec.onstop = resolve; });
+    rec.start();
+
+    const t0 = performance.now();
+    await new Promise(resolve => {
+      function frame(now){
+        const elapsed = now - t0;
+        let progress = 0;
+        if (elapsed >= INTRO_MS) progress = growEase(Math.min((elapsed - INTRO_MS) / ANIM_MS, 1));
+        drawVideoFrame(ctx, v, progress);
+        btnDown.textContent = `Gravando... ${Math.min(Math.floor(elapsed/1000), Math.floor(totalMs/1000))}s/${Math.floor(totalMs/1000)}s`;
+        if (elapsed < totalMs) requestAnimationFrame(frame);
+        else resolve();
+      }
+      requestAnimationFrame(frame);
+    });
+    rec.stop();
+    await stopped;
+
+    const realType = rec.mimeType || mimeType;
+    const blob = new Blob(chunks, {type: realType});
+    const ext = realType.includes('mp4') ? 'mp4' : 'webm';
+    const fileName = `${currentResult.name}.${ext}`;
+    const url = URL.createObjectURL(blob);
+
+    const dlVideo = document.getElementById('dlVideo');
+    document.getElementById('dlImg').hidden = true;
+    dlVideo.hidden = false;
+    dlVideo.src = url;
+    document.getElementById('dlMeta').textContent = `Vídeo gerado (${realType.includes('mp4') ? 'MP4' : 'WebM'}, ${(blob.size/1024/1024).toFixed(2)} MB). No computador o download já deve ter começado — no celular, toque e segure o vídeo abaixo e escolha "salvar vídeo":`;
+    document.getElementById('dlStage').hidden = false;
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  } catch (err) {
+    alert('Não deu pra gravar o vídeo neste navegador: ' + err.message);
+  } finally {
+    btnDown.textContent = originalLabel;
+    btnDown.disabled = false; btnRefresh.disabled = false; tipoSel.disabled = false;
+  }
+}
+
 document.getElementById('tipo').addEventListener('change', draw);
 document.getElementById('jogo').addEventListener('change', draw);
 document.getElementById('confHome').addEventListener('change', draw);
@@ -1127,7 +1407,10 @@ document.getElementById('btnConfSwap').addEventListener('click', swapConfronto);
   id => document.getElementById(id).addEventListener('change', draw));
 document.getElementById('chancesSelect').addEventListener('change', () => { enforceChancesLimit(); draw(); });
 document.getElementById('btnRefresh').addEventListener('click', draw);
-document.getElementById('btnDown').addEventListener('click', download);
+document.getElementById('btnDown').addEventListener('click', () => {
+  if (document.getElementById('tipo').value === 'video') recordVideo();
+  else download();
+});
 document.getElementById('btnReroll').addEventListener('click', rerollCaption);
 
 populateJogoSelect();

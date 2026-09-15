@@ -1,0 +1,188 @@
+{
+  "1765": {
+    "name": "Fluminense FC",
+    "short_name": "Fluminense",
+    "tla": "FLU",
+    "colors": [
+      "#7B1F2B",
+      "#1E8E4E",
+      "#F2F2F2"
+    ]
+  },
+  "1766": {
+    "name": "CA Mineiro",
+    "short_name": "Mineiro",
+    "tla": "CAM",
+    "colors": [
+      "#1A1A1A",
+      "#F2F2F2"
+    ]
+  },
+  "1767": {
+    "name": "Grêmio FBPA",
+    "short_name": "Grêmio",
+    "tla": "FBP",
+    "colors": [
+      "#1E5AA8",
+      "#1A1A1A",
+      "#F2F2F2"
+    ]
+  },
+  "1768": {
+    "name": "CA Paranaense",
+    "short_name": "Paranaense",
+    "tla": "CAP",
+    "colors": [
+      "#1A1A1A",
+      "#F2F2F2",
+      "#D32F2F"
+    ]
+  },
+  "1769": {
+    "name": "SE Palmeiras",
+    "short_name": "Palmeiras",
+    "tla": "PAL",
+    "colors": [
+      "#1E8E4E",
+      "#F2F2F2"
+    ]
+  },
+  "1770": {
+    "name": "Botafogo FR",
+    "short_name": "Botafogo",
+    "tla": "BOT",
+    "colors": [
+      "#1A1A1A",
+      "#F2F2F2"
+    ]
+  },
+  "1771": {
+    "name": "Cruzeiro EC",
+    "short_name": "Cruzeiro",
+    "tla": "CRU",
+    "colors": [
+      "#1E5AA8",
+      "#F2F2F2"
+    ]
+  },
+  "1772": {
+    "name": "Chapecoense AF",
+    "short_name": "Chapecoense",
+    "tla": "CHA",
+    "colors": [
+      "#1E8E4E",
+      "#F2F2F2"
+    ]
+  },
+  "1776": {
+    "name": "São Paulo FC",
+    "short_name": "São Paulo",
+    "tla": "PAU",
+    "colors": [
+      "#F2F2F2",
+      "#D32F2F",
+      "#1A1A1A"
+    ]
+  },
+  "1777": {
+    "name": "EC Bahia",
+    "short_name": "Bahia",
+    "tla": "BAH",
+    "colors": [
+      "#1E5AA8",
+      "#F2F2F2",
+      "#D32F2F"
+    ]
+  },
+  "1779": {
+    "name": "SC Corinthians Paulista",
+    "short_name": "Corinthians",
+    "tla": "COR",
+    "colors": [
+      "#1A1A1A",
+      "#F2F2F2"
+    ]
+  },
+  "1780": {
+    "name": "CR Vasco da Gama",
+    "short_name": "Vasco da Gama",
+    "tla": "VAS",
+    "colors": [
+      "#1A1A1A",
+      "#F2F2F2"
+    ]
+  },
+  "1782": {
+    "name": "EC Vitória",
+    "short_name": "Vitória",
+    "tla": "VIT",
+    "colors": [
+      "#D32F2F",
+      "#1A1A1A"
+    ]
+  },
+  "1783": {
+    "name": "CR Flamengo",
+    "short_name": "Flamengo",
+    "tla": "FLA",
+    "colors": [
+      "#D32F2F",
+      "#1A1A1A",
+      "#F2F2F2"
+    ]
+  },
+  "4241": {
+    "name": "Coritiba FBC",
+    "short_name": "Coritiba",
+    "tla": "COR",
+    "colors": [
+      "#1E8E4E",
+      "#F2F2F2"
+    ]
+  },
+  "4286": {
+    "name": "RB Bragantino",
+    "short_name": "Bragantino",
+    "tla": "RBB",
+    "colors": [
+      "#F2F2F2",
+      "#1A1A1A"
+    ]
+  },
+  "4287": {
+    "name": "Clube do Remo",
+    "short_name": "Clube do Remo",
+    "tla": "CRE",
+    "colors": [
+      "#152A5E",
+      "#F2F2F2"
+    ]
+  },
+  "4364": {
+    "name": "Mirassol FC",
+    "short_name": "Mirassol",
+    "tla": "MIR",
+    "colors": [
+      "#1E8E4E",
+      "#F2C438"
+    ]
+  },
+  "6684": {
+    "name": "SC Internacional",
+    "short_name": "Internacional",
+    "tla": "SCI",
+    "colors": [
+      "#D32F2F",
+      "#F2F2F2"
+    ]
+  },
+  "6685": {
+    "name": "Santos FC",
+    "short_name": "Santos",
+    "tla": "SAN",
+    "colors": [
+      "#1A1A1A",
+      "#F2F2F2"
+    ]
+  }
+}

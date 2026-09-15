@@ -2,3 +2,8 @@
 .venv/
 __pycache__/
 *.pyc
+
+# card de imagem: PNG gerado e fundo da IA em cache. Os escudos e
+# assets/teams.json ficam versionados (sao pequenos e estaveis, e
+# evitam refazer o request); imagem gerada, nao.
+cards/

@@ -584,27 +584,29 @@ function renderRanking(){
 /* -------------------- 4. status semanal -------------------- */
 const dec1 = v => v.toFixed(1).replace('.', ',');
 
-/* barra divergente: mesmo padrao visual da pagina Sorte (eixo no
-   centro, barra pra direita em verde/subida, pra esquerda em
-   vermelho/queda, comprimento proporcional ao maior |valor| do par) */
-function divergBar(cx, y, halfW, valuePp, maxAbs, colorPos, colorNeg){
-  const up = valuePp >= 0;
-  const len = maxAbs > 0 ? Math.min(halfW, Math.abs(valuePp) / maxAbs * halfW) : 0;
-  const color = up ? colorPos : colorNeg;
-  const x0 = up ? cx : cx - len;
-  return `<line x1="${cx}" y1="${y-9}" x2="${cx}" y2="${y+9}" stroke="${C.ink4}" stroke-width="1" opacity=".55"/>
-    <rect x="${x0.toFixed(1)}" y="${y-5}" width="${len.toFixed(1)}" height="10" rx="3" fill="${color}"/>`;
-}
-
-function mudancaRow(y, label, item, maxAbs){
-  if (!item) return `<text x="56" y="${y+16}" font-size="14" fill="${C.ink4}">${esc(label)}: sem dado da rodada anterior</text>`;
+/* cartao-KPI (fundo proprio, numero grande) pra "maior alta/queda de
+   titulo na semana" -- ficava fraco como duas linhas de texto fininho
+   (versao antiga), agora e o mesmo nivel de peso visual que o numero
+   grande do card de Confronto: rotulo pequeno, nome grande, delta
+   enorme com seta e barra de magnitude embaixo. */
+function mudancaBox(boxX, boxY, boxW, boxH, label, item, maxAbs){
+  const pad = 28;
+  let s = `<rect x="${boxX}" y="${boxY}" width="${boxW}" height="${boxH}" rx="14" fill="${C.surface}" stroke="${C.line}"/>
+    <text x="${boxX+pad}" y="${boxY+30}" font-size="12" font-weight="700" fill="${C.ink3}" letter-spacing="1">${esc(label)}</text>`;
+  if (!item){
+    s += `<text x="${boxX+pad}" y="${boxY+boxH/2+14}" font-size="16" fill="${C.ink4}">Sem dado da rodada anterior</text>`;
+    return s;
+  }
   const up = item.delta_pp >= 0;
   const color = up ? C.accent : C.red;
-  let s = `<text x="56" y="${y}" font-size="12" font-weight="700" fill="${C.ink3}" letter-spacing="1">${esc(label)}</text>`;
-  s += `<text x="56" y="${y+26}" font-size="22" font-weight="700" fill="${C.ink}">${esc(item.team)}</text>`;
-  s += `<text x="${W-56}" y="${y}" text-anchor="end" font-size="12" fill="${C.ink3}">agora em ${dec1(item.atual_pct)}%</text>`;
-  s += `<text x="${W-56}" y="${y+26}" text-anchor="end" font-size="22" font-weight="700" fill="${color}">${up?'+':''}${dec1(item.delta_pp)} p.p.</text>`;
-  s += divergBar(600, y+42, 510, item.delta_pp, maxAbs, C.accent, C.red);
+  const nameSize = item.team.length > 12 ? 26 : item.team.length > 8 ? 29 : 32;
+  s += `<text x="${boxX+pad}" y="${boxY+64}" font-size="${nameSize}" font-weight="700" fill="${C.ink}">${esc(item.team)}</text>`;
+  s += `<text x="${boxX+pad}" y="${boxY+104}" font-size="34" font-weight="700" fill="${color}">${up?'↑ +':'↓ '}${dec1(item.delta_pp)} p.p.</text>`;
+  s += `<text x="${boxX+boxW-pad}" y="${boxY+104}" text-anchor="end" font-size="13" fill="${C.ink3}">agora em<tspan x="${boxX+boxW-pad}" dy="16" font-size="15" font-weight="700" fill="${C.ink2}">${dec1(item.atual_pct)}%</tspan></text>`;
+  const barY = boxY + boxH - 26, barW = boxW - pad * 2;
+  const fillW = Math.max(6, barW * Math.min(1, Math.abs(item.delta_pp) / maxAbs));
+  s += `<rect x="${boxX+pad}" y="${barY}" width="${barW}" height="8" rx="4" fill="${C.surface2}"/>
+    <rect x="${boxX+pad}" y="${barY}" width="${fillW.toFixed(1)}" height="8" rx="4" fill="${color}"/>`;
   return s;
 }
 
@@ -613,16 +615,16 @@ function mudancaRow(y, label, item, maxAbs){
    nao tem medida de texto disponivel antes de renderizar) */
 function chipRow(items, x0, y0, maxWidth, lineH, maxLines){
   let x = x0, y = y0, line = 0, shown = 0, svg = '';
-  const charW = 6.4;
+  const charW = 6.9;
   for (const it of items){
     const w = it.text.length * charW + 34;
     if (x + w > x0 + maxWidth){
       line++; x = x0; y += lineH;
       if (line >= maxLines) break;
     }
-    svg += `<rect x="${x.toFixed(1)}" y="${y}" width="${w.toFixed(1)}" height="24" rx="12" fill="${C.surface}" stroke="${C.line}"/>
-      <circle cx="${(x+14).toFixed(1)}" cy="${y+12}" r="4" fill="${it.color}"/>
-      <text x="${(x+24).toFixed(1)}" y="${y+16}" font-size="12" font-weight="600" fill="${C.ink2}">${esc(it.text)}</text>`;
+    svg += `<rect x="${x.toFixed(1)}" y="${y}" width="${w.toFixed(1)}" height="26" rx="13" fill="${C.surface}" stroke="${C.line}"/>
+      <circle cx="${(x+14).toFixed(1)}" cy="${y+13}" r="4" fill="${it.color}"/>
+      <text x="${(x+24).toFixed(1)}" y="${y+17}" font-size="12.5" font-weight="600" fill="${C.ink2}">${esc(it.text)}</text>`;
     x += w + 12;
     shown++;
   }
@@ -630,8 +632,8 @@ function chipRow(items, x0, y0, maxWidth, lineH, maxLines){
   if (rest > 0){
     const w = `+${rest} mudança${rest>1?'s':''}`.length * charW + 34;
     if (x + w > x0 + maxWidth){ y += lineH; x = x0; }
-    svg += `<rect x="${x.toFixed(1)}" y="${y}" width="${w.toFixed(1)}" height="24" rx="12" fill="${C.surface2}"/>
-      <text x="${(x+w/2).toFixed(1)}" y="${y+16}" text-anchor="middle" font-size="12" font-weight="700" fill="${C.ink3}">+${rest} mudança${rest>1?'s':''}</text>`;
+    svg += `<rect x="${x.toFixed(1)}" y="${y}" width="${w.toFixed(1)}" height="26" rx="13" fill="${C.surface2}"/>
+      <text x="${(x+w/2).toFixed(1)}" y="${y+17}" text-anchor="middle" font-size="12.5" font-weight="700" fill="${C.ink3}">+${rest} mudança${rest>1?'s':''}</text>`;
   }
   return svg;
 }
@@ -651,65 +653,97 @@ function renderStatus(){
   m.novidades.forEach(n => chips.push({text:`${n.team}: ${n.tipo}`, color: tipoColor[n.tipo] || C.ink3}));
   if (!chips.length) chips.push({text:'Nenhum cenário virou nesta rodada', color:C.ink4});
 
+  /* -------- 1. cabecalho + dois cartoes-KPI (maior alta/queda) -------- */
   const prevLabel = DATA.prev_round != null ? `RODADA ${DATA.prev_round} → ${DATA.current_round}` : `RODADA ${DATA.current_round}`;
   let top = `<text x="56" y="118" font-size="15" font-weight="700" fill="${C.blue}" letter-spacing="1.5">O QUE MUDOU — ${prevLabel}</text>`;
-  top += mudancaRow(142, 'MAIOR ALTA DE TÍTULO NA SEMANA', m.titulo_alta, maxAbs);
-  top += mudancaRow(204, 'MAIOR QUEDA DE TÍTULO NA SEMANA', m.titulo_queda, maxAbs);
-  top += `<text x="56" y="270" font-size="12" font-weight="700" fill="${C.ink3}" letter-spacing="1">MUDANÇAS DE CENÁRIO NESTA RODADA (G4 ±${G4_THRESH}p.p. ou confirmação/descarte)</text>`;
-  top += chipRow(chips, 56, 282, W - 112, 32, 2);
+  const boxY = 146, boxH = 160, gap = 24, boxW = (W - 112 - gap) / 2;
+  top += mudancaBox(56, boxY, boxW, boxH, 'MAIOR ALTA DE TÍTULO NA SEMANA', m.titulo_alta, maxAbs);
+  top += mudancaBox(56 + boxW + gap, boxY, boxW, boxH, 'MAIOR QUEDA DE TÍTULO NA SEMANA', m.titulo_queda, maxAbs);
 
-  /* -------- conteudo existente: cenarios acumulados + ritmo -------- */
+  /* -------- 2. mudancas de cenario (chips, uma linha) -------- */
+  const div1Y = boxY + boxH + 22;
+  top += `<line x1="56" y1="${div1Y}" x2="${W-56}" y2="${div1Y}" stroke="${C.line}" stroke-width="1"/>`;
+  const chipLabelY = div1Y + 30;
+  top += `<text x="56" y="${chipLabelY}" font-size="12" font-weight="700" fill="${C.ink3}" letter-spacing="1">MUDANÇAS DE CENÁRIO NESTA RODADA (G4 ±${G4_THRESH}p.p. ou confirmação/descarte)</text>`;
+  top += chipRow(chips, 56, chipLabelY + 14, W - 112, 32, 1);
+
+  /* -------- 3. cenarios acumulados (esquerda) + ritmo do lider (direita) -------- */
+  const div2Y = chipLabelY + 14 + 26 + 24;
+  top += `<line x1="56" y1="${div2Y}" x2="${W-56}" y2="${div2Y}" stroke="${C.line}" stroke-width="1"/>`;
+
   const cen = DATA.cenarios;
   const groups = [
     {label:'Título confirmado', key:'titulo_confirmado', color:C.accent},
     {label:'Título descartado', key:'titulo_descartado', color:C.ink3},
+    {label:'G4 confirmado', key:'g4_confirmado', color:C.accent},
     {label:'G4 descartado', key:'g4_descartado', color:C.ink3},
     {label:'Z4 confirmado (rebaixado)', key:'z4_confirmado', color:C.red},
     {label:'Fora do Z4 (salvo)', key:'z4_descartado', color:C.accent},
   ].map(g => ({...g, teams: cen.filter(c => c[g.key]).map(c => c.team)}))
    .filter(g => g.teams.length);
 
-  let y = 400;
-  let left = `<text x="56" y="374" font-size="14" font-weight="700" fill="${C.ink3}" letter-spacing="1">CENÁRIOS ACUMULADOS — RODADA ${DATA.current_round}</text>`;
-  groups.slice(0, 4).forEach(g => {
+  const colDivX = 588, headerY = div2Y + 30, rowsY0 = headerY + 34, rowH = 38, maxRows = 3;
+  const shownGroups = groups.slice(0, maxRows);
+  let left = `<text x="56" y="${headerY}" font-size="12" font-weight="700" fill="${C.ink3}" letter-spacing="1">CENÁRIOS ACUMULADOS — RODADA ${DATA.current_round}</text>`;
+  if (groups.length > maxRows){
+    left += `<text x="${colDivX-32}" y="${headerY}" text-anchor="end" font-size="11" fill="${C.ink4}">+${groups.length - maxRows} categoria${groups.length - maxRows > 1 ? 's' : ''}</text>`;
+  }
+  shownGroups.forEach((g, i) => {
+    const y = rowsY0 + i * rowH;
     const names = g.teams.slice(0, 3).join(', ') + (g.teams.length > 3 ? ` +${g.teams.length - 3}` : '');
-    left += `<rect x="56" y="${y}" width="7" height="34" rx="3" fill="${g.color}"/>
-      <text x="76" y="${y+14}" font-size="12.5" font-weight="700" fill="${g.color}">${esc(g.label.toUpperCase())} (${g.teams.length})</text>
-      <text x="76" y="${y+31}" font-size="14.5" fill="${C.ink2}">${esc(names)}</text>`;
-    y += 50;
+    left += `<rect x="56" y="${y}" width="6" height="28" rx="3" fill="${g.color}"/>
+      <text x="74" y="${y+11}" font-size="11.5" font-weight="700" fill="${g.color}">${esc(g.label.toUpperCase())} (${g.teams.length})</text>
+      <text x="74" y="${y+28}" font-size="14" fill="${C.ink2}">${esc(names)}</text>`;
   });
 
-  /* ritmo do líder: temporada corrente vs as 3 anteriores, mesmo eixo de rodada */
+  /* ritmo do líder: temporada corrente vs as anteriores, mesmo eixo de
+     rodada. Antes as linhas cinzas nao tinham legenda (impossivel saber
+     qual e qual temporada); agora tem legenda de tracinho+ano acima do
+     grafico e a comparacao "na mesma rodada" foi pro cabecalho, em vez
+     de uma linha de texto solta que nao cabia mais no cartao. */
   const seasons = Object.keys(DATA.ritmo).sort();
   const curSeason = String(DATA.season);
   const cur = DATA.ritmo[curSeason] || [];
   const others = seasons.filter(s => s !== curSeason);
   const maxN = Math.max(...seasons.map(s => DATA.ritmo[s].length));
   const maxV = Math.max(...seasons.flatMap(s => DATA.ritmo[s]));
-  const cx = 700, cw = 440, cy0 = 390, ch = 170;
+  const cx = 620, cw = W - 56 - cx, chartTop = rowsY0 + 12, chartH = rowsY0 + maxRows * rowH - chartTop - 4;
   const px = i => cx + i / (maxN - 1) * cw;
-  const pv = v => cy0 + ch - v / maxV * ch;
+  const pv = v => chartTop + chartH - v / maxV * chartH;
   const line = (arr, color, dim) => {
     const pts = arr.map((v,i) => `${px(i).toFixed(1)},${pv(v).toFixed(1)}`).join(' ');
     return `<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="${dim?2:3}" opacity="${dim?0.55:1}"/>`;
   };
-  let chart = `<text x="${cx}" y="374" font-size="14" font-weight="700" fill="${C.ink3}" letter-spacing="1">RITMO DO LÍDER</text>`;
-  chart += `<line x1="${cx}" y1="${cy0+ch}" x2="${cx+cw}" y2="${cy0+ch}" stroke="${C.line}" stroke-width="1"/>`;
-  others.forEach(s => chart += line(DATA.ritmo[s], C.ink4, true));
-  chart += line(cur, C.accent, false);
-  const lastI = cur.length - 1;
-  chart += `<circle cx="${px(lastI).toFixed(1)}" cy="${pv(cur[lastI]).toFixed(1)}" r="5" fill="${C.accent}"/>`;
-  chart += `<text x="${px(lastI).toFixed(1)}" y="${(pv(cur[lastI])-14).toFixed(1)}" text-anchor="middle" font-size="13" font-weight="700" fill="${C.accent}">${cur[lastI]} pts</text>`;
 
+  const lastI = cur.length - 1;
   const prevSeason = others[others.length-1];
   const prevAtSame = DATA.ritmo[prevSeason] && DATA.ritmo[prevSeason][lastI] != null ? DATA.ritmo[prevSeason][lastI] : null;
-  let compareTxt = '';
+  let chart = `<text x="${cx}" y="${headerY}" font-size="12" font-weight="700" fill="${C.ink3}" letter-spacing="1">RITMO DO LÍDER</text>`;
   if (prevAtSame != null){
-    const diff = cur[lastI] - prevAtSame;
-    compareTxt = `<text x="${cx}" y="${cy0+ch+34}" font-size="13" fill="${C.ink2}">Na rodada ${lastI+1}, o campeão de ${prevSeason} tinha ${prevAtSame} pts (${diff>=0?'+':''}${diff} hoje).</text>`;
+    chart += `<text x="${W-56}" y="${headerY}" text-anchor="end" font-size="11" fill="${C.ink4}">${prevSeason} na rodada ${lastI+1}: ${prevAtSame} pts</text>`;
   }
+  /* legenda: tracinho colorido + ano, temporada atual primeiro e em
+     destaque, sem precisar de uma linha extra depois do grafico */
+  let legX = cx;
+  const legY = headerY + 16;
+  const legendItem = (yr, color, bold) => {
+    const w = 16 + yr.length * (bold ? 7.2 : 6.6) + 10;
+    const svgSeg = `<line x1="${legX}" y1="${legY-4}" x2="${legX+14}" y2="${legY-4}" stroke="${color}" stroke-width="3"/>
+      <text x="${legX+20}" y="${legY}" font-size="${bold?11.5:11}" font-weight="${bold?700:600}" fill="${color}">${esc(yr)}</text>`;
+    legX += w;
+    return svgSeg;
+  };
+  chart += legendItem(curSeason, C.accent, true);
+  others.forEach(s => chart += legendItem(s, C.ink4, false));
 
-  const inner = `${top}${left}${chart}${compareTxt}`;
+  chart += `<line x1="${cx}" y1="${chartTop+chartH}" x2="${cx+cw}" y2="${chartTop+chartH}" stroke="${C.line}" stroke-width="1"/>`;
+  others.forEach(s => chart += line(DATA.ritmo[s], C.ink4, true));
+  chart += line(cur, C.accent, false);
+  chart += `<circle cx="${px(lastI).toFixed(1)}" cy="${pv(cur[lastI]).toFixed(1)}" r="5" fill="${C.accent}"/>`;
+  const labelAbove = pv(cur[lastI]) - chartTop > 20;
+  chart += `<text x="${px(lastI).toFixed(1)}" y="${(labelAbove ? pv(cur[lastI])-14 : pv(cur[lastI])+22).toFixed(1)}" text-anchor="middle" font-size="13" font-weight="700" fill="${C.accent}">${cur[lastI]} pts</text>`;
+
+  const inner = `${top}${left}${chart}`;
   return {svg: shell(inner, tagFor(DATA.current_round)), name: `status-semanal-rodada-${DATA.current_round}.png`, caption: captionStatus(m)};
 }
 

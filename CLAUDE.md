@@ -179,6 +179,31 @@ commita `data/` e `docs/`.
 interna de export de imagem pra redes). Mudança no formato do
 payload pode quebrar a segunda em silêncio — conferir as duas.
 
+## Card de imagem com IA (`src/card_confronto.py`)
+
+Único ponto do projeto que chama um modelo generativo, e o limite é
+rígido: **a IA pinta só o fundo abstrato**. Texto, número, escudo,
+nome de clube e legenda são desenhados pelo Pillow a partir do dado.
+Não pedir pro modelo escrever placar, nome ou escudo — erra acento e
+identidade visual, e quebraria a regra de que todo card sai do dado.
+
+O módulo **não recalcula nada**: lê o payload que `build_site.py` já
+gravou em `docs/export/index.html`, pela mesma sentinela
+`/*__DATA__*/`, e `confronto_prob()` é transcrição literal de
+`confrontoProb()` do template de export. Se precisar de um número
+novo no card, o caminho é botá-lo no payload de export primeiro, não
+reler parquet aqui — senão vira um terceiro lugar onde a mesma conta
+mora, com o mesmo risco silencioso do `validate_elo.py`.
+
+Custo: o fundo é cacheado em `cards/bg/` por chave que inclui
+`PROMPT_VERSION`. **Mexeu no texto do prompt, suba `PROMPT_VERSION`**
+— senão o cache antigo continua sendo servido e parece que a API
+ignorou a mudança. `--sem-ia` desenha degradê procedural e não chama
+API nenhuma; é com ele que se itera layout.
+
+Fora do workflow do Actions, como `calibrate_elo.py` e
+`validate_elo.py`.
+
 ## Convenções
 
 - Comentários e nomes de coluna em português informal, código em

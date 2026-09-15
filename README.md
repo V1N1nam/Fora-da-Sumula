@@ -194,6 +194,105 @@ decide "partida encerrada" pelo placar preenchido, nunca pelo texto do
 status. Se `status_anomalo` passar de 20% numa rodada, `ingest.py`
 avisa no log -- pode ser sinal de mudança de comportamento da API.
 
+## Card de Confronto em imagem (`src/card_confronto.py`)
+
+Gera o PNG 1600x900 (tamanho de feed do X) do confronto entre dois
+clubes: **fundo pela API de imagem da OpenAI, todo o resto pelo
+Pillow**. A IA não escreve texto, número nem escudo — ela só pinta
+atmosfera abstrata (luz de estádio, degradê nas cores dos dois
+clubes), que ainda leva escurecimento, desfoque e vinheta antes de
+qualquer coisa ser desenhada por cima. Nome, probabilidade, posição,
+pontos, força, retrospecto e legenda saem do dado, como todo o resto
+do site.
+
+O dado vem do payload que `build_site.py` já gravou em
+`docs/export/index.html`, lido pela mesma sentinela `/*__DATA__*/` do
+gerador de imagens. Nada é recalculado aqui — a fórmula de
+probabilidade é transcrição literal de `confrontoProb()` do template.
+Rode o pipeline antes.
+
+```bash
+# fundo procedural, não chama a API (iterar layout de graça)
+python src/card_confronto.py --casa Flamengo --fora Palmeiras --sem-ia
+
+# com a IA (gpt-image-1-mini, qualidade low por padrão)
+python src/card_confronto.py --casa FLA --fora PAL
+
+# os três formatos de uma vez
+python src/card_confronto.py --casa FLA --fora PAL --formato x feed story
+
+# os 10 jogos da próxima rodada de uma vez, reaproveitando o cache
+python src/card_confronto.py --todos-proxima
+```
+
+`--formato` escolhe o destino: `x` 1600x900 (16:9, feed do X, o
+padrão), `feed` 1080x1350 (4:5, post do Instagram) e `story`
+1080x1920 (9:16). No 16:9 a barra fica à esquerda e o comparativo à
+direita; nos dois formatos em pé tudo desce em blocos. O `story`
+mantém o conteúdo entre ~200 e ~1660 de altura, porque a interface do
+Instagram cobre o topo e a base — sem isso o wordmark e a atribuição
+saem escondidos atrás da UI.
+
+Os dois formatos em pé pedem o mesmo tamanho à API (1024x1536, a
+orientação retrato que ela oferece) e o mesmo prompt, então
+**compartilham o fundo**: gerar os dois custa uma imagem, não duas. O
+16:9 tem o fundo dele — recortar 9:16 de uma paisagem destruiria a
+composição. O prompt também muda por orientação: no 16:9 a luz do
+gramado pode ocupar a metade de baixo, que está vazia; em pé essa
+área é o comparativo, então a faixa clara desce pro rodapé.
+
+**A luz do fundo carrega dado.** O lado do favorito fica mais aceso,
+na proporção da força relativa dos dois times — `p_casa / (p_casa +
+p_fora)`, ignorando o empate, que não tem lado no quadro. Isso é feito
+no Python (`_ganho_por_lado`), depois da IA, e não no prompt: modelo de
+imagem não obedece proporção numérica, e pôr a probabilidade no prompt
+a colocaria na chave do cache — cada confronto viraria uma geração
+nova. Assim o mesmo fundo cacheado serve pra qualquer par de
+probabilidades, e a proporção sai exata. O expoente e o clamp em
+`_ganho_por_lado` amortecem o efeito, pra que 70/30 não estoure um
+lado e apague o outro.
+
+Sai em `cards/out/` (PNG + `.txt` com a legenda pronta pra postar),
+pasta ignorada pelo git. `assets/crests/` e `assets/teams.json` vêm de
+uma única chamada a `/competitions/BSA/teams` e ficam versionados.
+
+**O que segura o custo**, já que o modelo cobra por imagem gerada:
+
+- o fundo é cacheado em `cards/bg/` por chave `(versão do prompt,
+  cores dos dois clubes, tamanho, qualidade)`. Gerar o mesmo confronto
+  de novo não gasta nada, e dois confrontos entre clubes de cores
+  equivalentes compartilham o fundo.
+- o padrão é `--qualidade low`. Testado contra `high` e `medium` no
+  mesmo par de cores (vermelho × verde): o que fazia o fundo parecer
+  ruim no começo era o pós-processamento, não o tier — depois de
+  arrumar o pós, o `low` não ficou atrás, e o pós achata detalhe fino
+  de qualquer jeito. O `medium` ainda desobedeceu a composição pedida
+  (pôs refletor em cima do texto), mas com uma geração de cada não dá
+  pra dizer se é o tier ou sorteio.
+- como só existem **7 cores de marca** entre os 20 clubes (`cor_marca`
+  mapeia o `clubColors` da API num palete fixo), o universo inteiro de
+  fundos é 28 pares por orientação. O custo converge pra zero depois
+  das primeiras semanas — em compensação, dois confrontos com a mesma
+  combinação de cores saem com fundo idêntico.
+- `--sem-ia` desenha um degradê procedural nas cores dos clubes e não
+  chama a API. É o fallback de verdade, não placeholder: o card sai
+  igual se a API estiver fora do ar na hora de postar.
+
+Se mudar o texto do prompt, suba `PROMPT_VERSION` no módulo — senão o
+cache antigo continua sendo servido e parece que a API ignorou a
+mudança.
+
+O prompt descreve a composição **do card**, não uma foto bonita: a
+luz é empurrada pra metade de baixo e o topo é pedido quase preto,
+porque a parte de cima do layout é a mais ocupada (wordmark, tag de
+rodada, escudos, nomes). Uma versão anterior pedia os refletores "nos
+cantos superiores" e eles nasceram em cima do rótulo da seção. Mexer
+nessa divisão de zonas sem olhar o layout quebra a legibilidade de
+novo.
+
+Fora do pipeline do Actions, como `calibrate_elo.py` e
+`validate_elo.py`: roda à mão, quando se quer a arte pra postar.
+
 ## Backlog
 
 - **Bootstrap de placar ponderado por kernel na diferença de Elo** (não
@@ -253,11 +352,14 @@ src/calibrate_elo.py       grid search de K/HFA + Davidson nu (one-off)
 src/elo.py                 rating + Monte Carlo -> data/processed/*.parquet
 src/derived.py              metricas derivadas -> data/processed/*.parquet
 src/validate_elo.py        validacao do modelo (rode quando ele mudar)
+src/card_confronto.py      card PNG 1600x900 do confronto (fundo por IA, resto Pillow)
 src/build_site.py          data/processed + data/raw -> docs/index.html
 fora-da-sumula-v3.html     template do site: CSS, paginas e JS. O build so troca
                            as duas linhas com sentinela (/*__DATA__*/ e /*__ELO__*/),
                            e o arquivo guarda o payload da ultima geracao -- da pra
                            abrir direto no navegador pra iterar design sem pipeline
 docs/index.html            gerado -- e o que o GitHub Pages serve (pasta fixa do Pages)
+assets/crests, teams.json  escudo e cores dos 20 clubes (1 request, versionado)
+cards/                     PNG gerado e cache de fundo da IA (ignorado pelo git)
 .github/workflows/         agendamento, commit e build do site automáticos
 ```

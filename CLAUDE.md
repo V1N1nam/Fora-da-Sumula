@@ -204,6 +204,37 @@ API nenhuma; é com ele que se itera layout.
 Fora do workflow do Actions, como `calibrate_elo.py` e
 `validate_elo.py`.
 
+## Card de Status Semanal (`src/card_status.py`)
+
+Mesma divisão de trabalho do Card de Confronto (payload de
+`docs/export/index.html` → template Python → Pillow), só que sem IA
+no fundo por padrão nas iterações de layout (`--sem-ia`). Regras de
+conteúdo, não de modelo — o Elo/Monte Carlo não muda:
+
+- **"Confirmado"/"descartado" nos cenários acumulados é limiar de
+  simulação, não eliminação matemática por combinatória de pontos
+  restantes.** A probabilidade do Monte Carlo bate exatamente 0% ou
+  100% dentro da resolução de `ELO_N_SIMULATIONS=10_000`
+  (1/10.000 = 0,01%) — ver `derived.cenarios()`. Por isso o rótulo no
+  card fala "chance de X abaixo de 0,01%"/"acima de 99,99%" em vez de
+  "descartado"/"salvo" seco, que sugeriria uma certeza combinatória
+  que o pipeline não calcula (`CENARIO_LABELS` em `card_status.py`).
+- **Maior alta/maior queda da semana só vira KPI se o módulo bater
+  2 p.p.** (`VARIACAO_MIN_PP`), considerando os 3 mercados (título,
+  G4, Z4 juntos, não só título). Abaixo disso é ruído esperado de 10
+  mil simulações por rodada, não mudança real de força — o card mostra
+  "Semana sem grandes mudanças" em vez de inflar ruído como manchete.
+- **Escala das barras de magnitude é fixa (10 p.p. = largura máxima,
+  `BAR_SCALE_PP`), não relativa ao maior delta da própria semana.**
+  Uma variação de 2 p.p. tem que parecer pequena na barra mesmo numa
+  semana parada, não "pequena só comparada com a outra barra".
+- **No cenário de Z4, só lista clube da 9ª posição pra baixo**
+  (`Z4_POSICAO_MIN`). Time do G6 "salvo" do rebaixamento não é
+  informação — é óbvio — e só apareceria porque o corte de
+  confirmado/descartado do Monte Carlo não sabe a posição na tabela.
+- **Nenhum travessão (— ou –) em texto do card**, mesma regra do
+  resto do site (commit `c2ce495`). Usa "·" ou quebra de linha.
+
 ## Convenções
 
 - Comentários e nomes de coluna em português informal, código em

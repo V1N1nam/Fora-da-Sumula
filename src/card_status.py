@@ -95,11 +95,47 @@ COL_DIV_X = 784
 CHART_X0 = 827
 CHART_X1 = W - M
 LEGEND_Y = HEADER_Y + 34
-CHART_TOP = LEGEND_Y + 20
+CAPTION_Y = LEGEND_Y + 14
+CHART_TOP = CAPTION_Y + 14
 CHART_H = ROWS_Y0 + MAX_ROWS * ROW_H - CHART_TOP - 5
 RODAPE_Y = 848
 
 G4_THRESH = 15
+
+# regra nova: variacao de titulo/G4/Z4 so vira KPI de "maior alta/queda
+# da semana" se o modulo bater 2 p.p.. Abaixo disso e ruido de simulacao
+# (10 mil rodadas de Monte Carlo por rodada -- ver ELO_N_SIMULATIONS em
+# config.py -- ja produzem esse tanto de flutuacao mesmo sem nada mudar
+# de verdade na forca dos times), nao merece virar manchete do card.
+VARIACAO_MIN_PP = 2.0
+
+# escala fixa das barras de magnitude dos KPIs (nao mais relativa ao
+# maior delta da semana): 10 p.p. sempre bate na largura maxima, senao
+# uma variacao pequena (2 p.p.) apareceria do mesmo tamanho que uma
+# grande (18 p.p.) so porque foi a maior das duas naquela rodada.
+BAR_SCALE_PP = 10.0
+
+# limiar real de "confirmado"/"descartado" em derived.cenarios(): a
+# probabilidade do Monte Carlo bate exatamente 0% ou 100% (dentro da
+# resolucao de ELO_N_SIMULATIONS=10_000, ou seja 1/10_000 = 0,01%) --
+# nao e eliminacao matematica calculada por combinatoria de pontos
+# restantes, e um limiar de simulacao. Por isso o rotulo no card fala
+# "chance abaixo de X%"/"acima de X%" em vez de "descartado"/"salvo"
+# seco, que sugeriria certeza combinatoria que o pipeline nao calcula.
+CENARIO_LABELS = {
+    "titulo_confirmado": "Chance de título acima de 99,99%",
+    "titulo_descartado": "Chance de título abaixo de 0,01%",
+    "g4_confirmado": "Chance de G4 acima de 99,99%",
+    "g4_descartado": "Chance de G4 abaixo de 0,01%",
+    "z4_confirmado": "Chance de rebaixamento acima de 99,99%",
+    "z4_descartado": "Chance de Z4 abaixo de 0,01%",
+}
+
+# no cenario de Z4, listar clube ja fora de risco matematico so importa
+# pra quem esta perto da zona -- Flamengo ou Palmeiras "salvos" do
+# rebaixamento na rodada 27 nao e informacao nenhuma. Filtra pelos dois
+# lados do Z4 (confirmado E descartado) por posicao real na tabela.
+Z4_POSICAO_MIN = 9
 
 
 def dec1(v: float) -> str:
@@ -266,7 +302,13 @@ class SimpleLayout:
 # ======================================================================
 
 def kpi_box(img: Image.Image, d: ImageDraw.ImageDraw, box_x: int, label: str,
-            item: dict | None, max_abs: float) -> None:
+            item: dict | None) -> None:
+    """`item`, quando presente, ja traz "bom" resolvido pelo chamador --
+    pra titulo/G4 "alta" e boa noticia (verde), pra Z4 e o contrario
+    (mais chance de cair e ruim, mesmo sendo um delta positivo). A
+    barra de magnitude usa BAR_SCALE_PP fixo, nao o maior delta da
+    propria semana -- assim uma variacao de 2 p.p. sempre parece
+    pequena, nao so "pequena comparada com a outra"."""
     pad = 37
     painel(img, (box_x, BOX_Y, box_x + BOX_W, BOX_Y + BOX_H), 18, hexa("surface", 225))
     d.rounded_rectangle((box_x, BOX_Y, box_x + BOX_W, BOX_Y + BOX_H), radius=18,
@@ -274,16 +316,16 @@ def kpi_box(img: Image.Image, d: ImageDraw.ImageDraw, box_x: int, label: str,
     texto(d, (box_x + pad, BOX_Y + 40), label, fonte(16), hexa("ink3"), tracking=1.3)
 
     if not item:
-        texto(d, (box_x + pad, BOX_Y + BOX_H / 2 + 14), "Sem dado da rodada anterior",
-              fonte(20, bold=False), hexa("ink4"))
+        texto(d, (box_x + pad, BOX_Y + BOX_H / 2 + 14), "Sem variação relevante nesta semana",
+              fonte(19, bold=False), hexa("ink4"), largura_max=BOX_W - 2 * pad)
         return
 
-    up = item["delta_pp"] >= 0
-    cor = hexa("accent") if up else hexa("#F5786A")
+    cor = hexa("accent") if item["bom"] else hexa("#F5786A")
     nome = item["team"]
     tam = 35 if len(nome) > 12 else 39 if len(nome) > 8 else 43
     texto(d, (box_x + pad, BOX_Y + 88), nome, fonte(tam), hexa("ink"))
 
+    up = item["delta_pp"] >= 0
     seta = "↑ +" if up else "↓ "
     texto(d, (box_x + pad, BOX_Y + 148), f"{seta}{dec1(item['delta_pp'])} p.p.", fonte(45), cor)
 
@@ -295,8 +337,73 @@ def kpi_box(img: Image.Image, d: ImageDraw.ImageDraw, box_x: int, label: str,
     bar_y, bar_w = BOX_Y + BOX_H - 34, BOX_W - 2 * pad
     d.rounded_rectangle((box_x + pad, bar_y, box_x + pad + bar_w, bar_y + 11), radius=5,
                         fill=hexa("surface2"))
-    fill_w = max(8, bar_w * min(1.0, abs(item["delta_pp"]) / max_abs))
+    fill_w = max(8, bar_w * min(1.0, abs(item["delta_pp"]) / BAR_SCALE_PP))
     d.rounded_rectangle((box_x + pad, bar_y, box_x + pad + fill_w, bar_y + 11), radius=5, fill=cor)
+
+
+def semana_sem_mudancas_panel(img: Image.Image, d: ImageDraw.ImageDraw,
+                               x0: int, x1: int) -> None:
+    painel(img, (x0, BOX_Y, x1, BOX_Y + BOX_H), 18, hexa("surface", 225))
+    d.rounded_rectangle((x0, BOX_Y, x1, BOX_Y + BOX_H), radius=18,
+                        outline=hexa("line2"), width=1)
+    cx, cy = (x0 + x1) / 2, BOX_Y + BOX_H / 2
+    texto(d, (cx, cy - 16), "Semana sem grandes mudanças", fonte(28), hexa("ink2"), anchor="mm")
+    texto(d, (cx, cy + 20), f"nenhuma variação de título, G4 ou Z4 passou de {dec1(VARIACAO_MIN_PP)} p.p.",
+          fonte(16, bold=False), hexa("ink4"), anchor="mm")
+
+
+def fit_names_multicol(d: ImageDraw.ImageDraw, nomes: list[str], width: float, max_h: float):
+    """Acha a maior fonte (das opcoes, da mais legivel pra menor) e o
+    menor numero de colunas que encaixam a lista INTEIRA de nomes
+    dentro de `width` x `max_h`, sem truncar nenhum nome -- e a
+    substituicao do antigo "+N" por "mostra todo mundo, em colunas".
+    None se nem a fonte minima com 4 colunas couber."""
+    for tam, line_h in ((15, 19), (14, 18), (13, 16), (12, 15), (11, 14)):
+        f = fonte(tam, bold=False)
+        for cols in (2, 3, 4):
+            col_w = (width - (cols - 1) * 18) / cols
+            if max(largura_texto(d, n, f) for n in nomes) > col_w:
+                continue
+            linhas = math.ceil(len(nomes) / cols)
+            altura = linhas * line_h
+            if altura <= max_h:
+                return f, cols, col_w, line_h, linhas
+    return None
+
+
+def desenha_lista_colunas(d: ImageDraw.ImageDraw, nomes: list[str], x0: float, y0: float,
+                           cols: int, col_w: float, line_h: float, linhas: int,
+                           f, cor, halo) -> None:
+    for i, nome in enumerate(nomes):
+        col, row = divmod(i, linhas)
+        texto(d, (x0 + col * (col_w + 18), y0 + row * line_h), nome, f, cor, halo=halo)
+
+
+def chance_titulo_block(img: Image.Image, d: ImageDraw.ImageDraw, x0: float, x1: float,
+                         y0: float, h: float, teams_confronto: dict, halo) -> None:
+    texto(d, (x0, y0), "CHANCE DE TÍTULO", fonte(15), hexa("ink3"), tracking=1.3, halo=halo)
+    top3 = sorted(
+        (t for t in teams_confronto.values() if (t.get("titulo") or 0) > 0),
+        key=lambda t: -t["titulo"],
+    )[:3]
+    if not top3:
+        texto(d, (x0, y0 + 24), "Nenhum favorito com chance viva.", fonte(15, bold=False),
+              hexa("ink4"), halo=halo)
+        return
+
+    disponivel = h - 20
+    linha_h = disponivel / len(top3)
+    if linha_h >= 20:
+        for i, t in enumerate(top3):
+            y = y0 + 22 + i * linha_h
+            texto(d, (x0, y), f"{i + 1}º", fonte(14, bold=False), hexa("ink4"), anchor="lm", halo=halo)
+            texto(d, (x0 + 26, y), t["short_name"], fonte(17), hexa("ink"), anchor="lm", halo=halo)
+            texto(d, (x1, y), f"{dec1(t['titulo'] * 100)}%", fonte(17), hexa("accent"),
+                  anchor="rm", halo=halo)
+    else:
+        partes = [f"{i + 1}º {t['short_name']} {dec1(t['titulo'] * 100)}%" for i, t in enumerate(top3)]
+        texto(d, (x0, y0 + 24), "  ·  ".join(partes), fonte(14, bold=False), hexa("ink2"),
+              largura_max=x1 - x0, halo=halo)
 
 
 def chip_row(img: Image.Image, d: ImageDraw.ImageDraw, items: list[dict],
@@ -327,13 +434,16 @@ def chip_row(img: Image.Image, d: ImageDraw.ImageDraw, items: list[dict],
         texto(d, (x + w / 2, y0 + CHIP_H / 2), texto_rest, f, hexa("ink3"), anchor="mm")
 
 
+def resolve_bom(mercado: str, delta_pp: float) -> bool:
+    """Pra titulo/G4, delta positivo e boa noticia (mais chance de
+    titulo ou G4). Pra Z4 e o contrario: delta positivo e mais risco de
+    cair, entao a mesma seta "para cima" tem que pintar de vermelho."""
+    up = delta_pp >= 0
+    return up if mercado != "Z4" else not up
+
+
 def montar_card(payload: dict, meta: dict, fundo: Image.Image) -> Image.Image:
     m = payload["mudancas_semana"]
-    max_abs = max(
-        abs((m.get("titulo_alta") or {}).get("delta_pp", 0)),
-        abs((m.get("titulo_queda") or {}).get("delta_pp", 0)),
-        1,
-    )
 
     img = preparar_fundo(fundo)
     d = ImageDraw.Draw(img)
@@ -358,12 +468,23 @@ def montar_card(payload: dict, meta: dict, fundo: Image.Image) -> Image.Image:
     prev_round = payload.get("prev_round")
     prev_label = (f"RODADA {prev_round} → {payload['current_round']}" if prev_round is not None
                  else f"RODADA {payload['current_round']}")
-    texto(d, (M, LABEL_Y), f"O QUE MUDOU — {prev_label}", fonte(20), hexa("blue"),
+    texto(d, (M, LABEL_Y), f"O QUE MUDOU · {prev_label}", fonte(20), hexa("blue"),
           tracking=2.0, halo=HALO)
 
-    # --- 1. cartoes-KPI (maior alta / maior queda) ---
-    kpi_box(img, d, BOX1_X, "MAIOR ALTA DE TÍTULO NA SEMANA", m.get("titulo_alta"), max_abs)
-    kpi_box(img, d, BOX2_X, "MAIOR QUEDA DE TÍTULO NA SEMANA", m.get("titulo_queda"), max_abs)
+    # --- 1. cartoes-KPI (maior alta / maior queda, entre titulo, G4 e Z4) ---
+    alta_raw, queda_raw = m.get("maior_alta_geral"), m.get("maior_queda_geral")
+    alta_ok = bool(alta_raw) and abs(alta_raw["delta_pp"]) >= VARIACAO_MIN_PP
+    queda_ok = bool(queda_raw) and abs(queda_raw["delta_pp"]) >= VARIACAO_MIN_PP
+
+    if not alta_ok and not queda_ok:
+        semana_sem_mudancas_panel(img, d, BOX1_X, BOX2_X + BOX_W)
+    else:
+        alta_item = {**alta_raw, "bom": resolve_bom(alta_raw["mercado"], alta_raw["delta_pp"])} if alta_ok else None
+        queda_item = {**queda_raw, "bom": resolve_bom(queda_raw["mercado"], queda_raw["delta_pp"])} if queda_ok else None
+        label_alta = f"MAIOR ALTA · {alta_raw['mercado'].upper()}" if alta_ok else "MAIOR ALTA"
+        label_queda = f"MAIOR QUEDA · {queda_raw['mercado'].upper()}" if queda_ok else "MAIOR QUEDA"
+        kpi_box(img, d, BOX1_X, label_alta, alta_item)
+        kpi_box(img, d, BOX2_X, label_queda, queda_item)
 
     d.line((M, DIV1_Y, W - M, DIV1_Y), fill=hexa("line2"), width=1)
 
@@ -383,42 +504,75 @@ def montar_card(payload: dict, meta: dict, fundo: Image.Image) -> Image.Image:
     if not chips:
         chips = [{"text": "Nenhum cenário virou nesta rodada", "color": hexa("ink4")}]
 
-    texto(d, (M, CHIP_LABEL_Y),
-          f"MUDANÇAS DE CENÁRIO NESTA RODADA (G4 ±{G4_THRESH}p.p. ou confirmação/descarte)",
+    texto(d, (M, CHIP_LABEL_Y), "QUEM MUDOU DE PATAMAR",
           fonte(16), hexa("ink3"), tracking=1.3, halo=HALO)
     chip_row(img, d, chips, M, CHIP_Y0)
 
     d.line((M, DIV2_Y, W - M, DIV2_Y), fill=hexa("line2"), width=1)
 
-    # --- 3a. cenarios acumulados (esquerda) ---
+    # --- 3a. cenarios acumulados + chance de titulo (esquerda) ---
     cen = payload["cenarios"]
-    grupos = [
-        ("Título confirmado", "titulo_confirmado", hexa("accent")),
-        ("Título descartado", "titulo_descartado", hexa("ink3")),
-        ("G4 confirmado", "g4_confirmado", hexa("accent")),
-        ("G4 descartado", "g4_descartado", hexa("ink3")),
-        ("Z4 confirmado (rebaixado)", "z4_confirmado", hexa("#F5786A")),
-        ("Fora do Z4 (salvo)", "z4_descartado", hexa("accent")),
+    grupos_spec = [
+        ("titulo_confirmado", hexa("accent"), False),
+        ("titulo_descartado", hexa("ink3"), False),
+        ("g4_confirmado", hexa("accent"), False),
+        ("g4_descartado", hexa("ink3"), False),
+        ("z4_confirmado", hexa("#F5786A"), True),
+        ("z4_descartado", hexa("accent"), True),
     ]
-    grupos = [
-        (label, cor, [c["team"] for c in cen if c.get(key)])
-        for label, key, cor in grupos
-    ]
-    grupos = [g for g in grupos if g[2]]
+    grupos = []
+    for key, cor, so_z4 in grupos_spec:
+        times = [
+            c["team"] for c in cen
+            if c.get(key) and (not so_z4 or (c.get("real_position") or 0) >= Z4_POSICAO_MIN)
+        ]
+        if times:
+            grupos.append((CENARIO_LABELS[key], cor, times))
 
-    texto(d, (M, HEADER_Y), f"CENÁRIOS ACUMULADOS — RODADA {payload['current_round']}",
+    texto(d, (M, HEADER_Y), f"CENÁRIOS ACUMULADOS · RODADA {payload['current_round']}",
           fonte(16), hexa("ink3"), tracking=1.3, halo=HALO)
-    if len(grupos) > MAX_ROWS:
-        extra = len(grupos) - MAX_ROWS
-        texto(d, (COL_DIV_X - 40, HEADER_Y), f"+{extra} categoria{'s' if extra > 1 else ''}",
+
+    # orcamento vertical: mesma altura total que a coluna ja tinha
+    # (3 * ROW_H, pra bater com a altura do grafico do lado direito).
+    # cada categoria mostrada usa a lista INTEIRA de nomes (sem "+N"),
+    # em colunas/fonte que encaixem; o que nao couber vira "+N
+    # categorias" (como antes -- isso some categoria inteira, nao nome
+    # truncado dentro de uma categoria mostrada). O que sobrar no fim
+    # vira o bloco "chance de titulo".
+    budget_total = MAX_ROWS * ROW_H
+    cen_x0, cen_x1 = M + 22, COL_DIV_X - 20
+    used = 0.0
+    shown = []
+    for label, cor, times in grupos:
+        cabecalho = f"{label} · {len(times)} time{'s' if len(times) != 1 else ''}"
+        restante = budget_total - used - 44  # reserva minima pro bloco de chance de titulo
+        if restante <= 18:
+            break
+        fit = fit_names_multicol(d, times, cen_x1 - cen_x0, restante - 18)
+        if fit is None:
+            break
+        f, cols, col_w, line_h, linhas = fit
+        altura = 18 + linhas * line_h + 12
+        shown.append((cabecalho, cor, times, f, cols, col_w, line_h, linhas, altura))
+        used += altura
+
+    overflow = len(grupos) - len(shown)
+    if overflow > 0:
+        texto(d, (COL_DIV_X - 20, HEADER_Y), f"+{overflow} categoria{'s' if overflow > 1 else ''}",
               fonte(15), hexa("ink4"), anchor="ra", halo=HALO)
 
-    for i, (label, cor, times) in enumerate(grupos[:MAX_ROWS]):
-        y = ROWS_Y0 + i * ROW_H
-        d.rounded_rectangle((M, y, M + 8, y + 37), radius=4, fill=cor)
-        nomes = ", ".join(times[:3]) + (f" +{len(times) - 3}" if len(times) > 3 else "")
-        texto(d, (M + 22, y + 2), f"{label.upper()} ({len(times)})", fonte(15), cor, halo=HALO)
-        texto(d, (M + 22, y + 22), nomes, fonte(19, bold=False), hexa("ink2"), halo=HALO)
+    y = ROWS_Y0
+    for cabecalho, cor, times, f, cols, col_w, line_h, linhas, altura in shown:
+        d.rounded_rectangle((M, y, M + 8, y + 12), radius=3, fill=cor)
+        texto(d, (M + 22, y), cabecalho, fonte(15), cor, anchor="lm", halo=HALO)
+        desenha_lista_colunas(d, times, M + 22, y + 18, cols, col_w, line_h, linhas, f,
+                              hexa("ink2"), HALO)
+        y += altura
+
+    chance_y0 = ROWS_Y0 + used
+    chance_h = max(44.0, budget_total - used)
+    chance_titulo_block(img, d, M + 22, COL_DIV_X - 20, chance_y0, chance_h,
+                        payload["teams_confronto"], HALO)
 
     # --- 3b. ritmo do lider (direita) ---
     seasons = sorted(payload["ritmo"].keys())
@@ -437,19 +591,40 @@ def montar_card(payload: dict, meta: dict, fundo: Image.Image) -> Image.Image:
     texto(d, (CHART_X0, HEADER_Y), "RITMO DO LÍDER", fonte(16), hexa("ink3"),
           tracking=1.3, halo=HALO)
     last_i = len(cur) - 1
+    lider_nome = next(
+        (t["short_name"] for t in payload["teams_confronto"].values() if t.get("real_position") == 1),
+        None,
+    )
+    if cur and lider_nome:
+        texto(d, (W - M, HEADER_Y), f"{lider_nome} · {cur[last_i]} pts", fonte(17), hexa("accent"),
+              anchor="ra", halo=HALO)
+
     prev_season = others[-1] if others else None
     prev_at_same = None
     if prev_season and last_i < len(payload["ritmo"][prev_season]):
         prev_at_same = payload["ritmo"][prev_season][last_i]
-    if prev_at_same is not None:
-        texto(d, (W - M, HEADER_Y), f"{prev_season} na rodada {last_i + 1}: {prev_at_same} pts",
-              fonte(15), hexa("ink4"), anchor="ra", halo=HALO)
 
     leg_x = CHART_X0
     for yr, cor, bold in [(cur_season, hexa("accent"), True)] + [(s, hexa("ink4"), False) for s in others]:
         d.line((leg_x, LEGEND_Y - 5, leg_x + 18, LEGEND_Y - 5), fill=cor, width=4)
         texto(d, (leg_x + 26, LEGEND_Y), yr, fonte(15, bold=bold), cor, anchor="lm")
         leg_x += 26 + largura_texto(d, yr, fonte(15, bold=bold)) + 20
+
+    if prev_at_same is not None and cur:
+        diff = cur[last_i] - prev_at_same
+        if diff > 0:
+            comparativo = f"{diff} ponto{'s' if diff != 1 else ''} a mais que o líder de {prev_season} nessa altura"
+        elif diff < 0:
+            ad = abs(diff)
+            comparativo = f"{ad} ponto{'s' if ad != 1 else ''} a menos que o líder de {prev_season} nessa altura"
+        else:
+            comparativo = f"empatado em pontos com o líder de {prev_season} nessa altura"
+        texto(d, (CHART_X1, LEGEND_Y), comparativo, fonte(14, bold=False), hexa("ink4"),
+              anchor="ra", halo=HALO)
+
+    texto(d, (CHART_X0, CAPTION_Y),
+          "Linhas cinzas: líder de cada rodada nas temporadas anteriores (nem sempre o mesmo clube)",
+          fonte(12, bold=False), hexa("ink4"), largura_max=CHART_X1 - CHART_X0, halo=HALO)
 
     overlay = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     od = ImageDraw.Draw(overlay)
@@ -466,9 +641,6 @@ def montar_card(payload: dict, meta: dict, fundo: Image.Image) -> Image.Image:
     if cur:
         cx_last, cy_last = px(last_i), pv(cur[last_i])
         d.ellipse((cx_last - 7, cy_last - 7, cx_last + 7, cy_last + 7), fill=hexa("accent"))
-        acima = cy_last - CHART_TOP > 26
-        texto(d, (cx_last, cy_last - 18 if acima else cy_last + 28), f"{cur[last_i]} pts",
-              fonte(17), hexa("accent"), anchor="mm", halo=HALO)
 
     texto(d, (DIR, RODAPE_Y), "foradasumula.com.br", fonte(17), hexa("ink3"),
           anchor="rs", halo=HALO)

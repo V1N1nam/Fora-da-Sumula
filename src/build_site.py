@@ -341,6 +341,34 @@ def build_mudancas_semana(teams: dict, team_order: list[str]) -> dict:
     titulo_alta = titulo_pico(maior_alta) if maior_alta and maior_alta[1] > 0 else None
     titulo_queda = titulo_pico(maior_queda) if maior_queda and maior_queda[1] < 0 else None
 
+    # maior_alta_geral/maior_queda_geral: mesma ideia de titulo_alta/
+    # titulo_queda acima, mas varrendo os 3 mercados (titulo, g4, z4),
+    # nao so titulo -- pro card de status semanal destacar a MAIOR
+    # variacao real da rodada, seja ela de titulo, G4 ou Z4. Campos
+    # aditivos: titulo_alta/titulo_queda continuam existindo do jeito
+    # que estavam (o SVG do gerador de imagens e a legenda de rede
+    # social em fora-da-sumula-export.html leem so esses dois).
+    mercados_deltas = []
+    for metrica, mercado_label in (("titulo", "título"), ("g4", "G4"), ("z4", "Z4")):
+        for tid in team_order:
+            d = delta_pp(tid, metrica)
+            if d is not None:
+                mercados_deltas.append((tid, metrica, mercado_label, d))
+
+    def pico_geral(par):
+        tid, metrica, mercado_label, d = par
+        return {
+            "team": teams[tid]["short_name"],
+            "mercado": mercado_label,
+            "delta_pp": round(d, 1),
+            "atual_pct": round(teams[tid][metrica][-1] * 100, 1),
+        }
+
+    geral_alta = max(mercados_deltas, key=lambda p: p[3]) if mercados_deltas else None
+    geral_queda = min(mercados_deltas, key=lambda p: p[3]) if mercados_deltas else None
+    maior_alta_geral = pico_geral(geral_alta) if geral_alta and geral_alta[3] > 0 else None
+    maior_queda_geral = pico_geral(geral_queda) if geral_queda and geral_queda[3] < 0 else None
+
     g4_entrou, g4_saiu = [], []
     for tid in team_order:
         d = delta_pp(tid, "g4")
@@ -371,6 +399,8 @@ def build_mudancas_semana(teams: dict, team_order: list[str]) -> dict:
     return {
         "titulo_alta": titulo_alta,
         "titulo_queda": titulo_queda,
+        "maior_alta_geral": maior_alta_geral,
+        "maior_queda_geral": maior_queda_geral,
         "g4_entrou": g4_entrou,
         "g4_saiu": g4_saiu,
         "novidades": novidades,
@@ -631,7 +661,11 @@ def build_export_data(data: dict) -> dict:
             if k in t
         }
         if any(flags.values()):
-            cenarios.append({"team": t["short_name"], **flags})
+            cenarios.append({
+                "team": t["short_name"],
+                "real_position": t.get("real_position"),
+                **flags,
+            })
 
     # o que os cards de Confronto e Chances por clube precisam por clube:
     # nome, posicao, pontos, forca (rating) atual e a ULTIMA probabilidade

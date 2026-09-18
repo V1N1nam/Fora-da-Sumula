@@ -491,9 +491,17 @@ table.tbl tr.edge td{border-bottom:1px solid var(--line-2);box-shadow:inset 0 -1
 .pp-veredito .big{font-size:27px;font-weight:700;letter-spacing:-.035em;line-height:1}
 .pp-veredito .tx{font-size:13px;color:var(--ink-2);line-height:1.5}
 .pp-veredito .tx b{color:var(--ink);font-weight:600}
-.pp-avanca{display:flex;align-items:center;gap:var(--s4);margin-top:var(--s5)}
-.pp-tbar{flex:1;height:3px;border-radius:var(--r-pill);background:var(--surface-3);overflow:hidden}
-.pp-tbar i{display:block;height:100%;width:0;background:var(--ink-4);transition:width 4.2s linear}
+/* o avanco e so por clique: nao ha timer nem barra de contagem aqui.
+   A revelacao fica na tela ate o usuario apertar o botao. */
+.pp-avanca{display:flex;margin-top:var(--s5)}
+.pp-next{min-height:48px;padding:13px 26px;font-size:14px}
+@media(max-width:520px){.pp-next{width:100%}}
+
+.pp-escolha{display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap;margin-bottom:var(--s5)}
+.pp-escolha .rot{font-size:11px;font-weight:600;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--ink-3)}
+.pp-escolha .field{flex:1 1 230px;max-width:320px}
+.pp-escolha .field select{min-height:48px}
 
 .pp-lista{display:flex;flex-direction:column;gap:1px;background:var(--line);
   border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden}
@@ -2264,6 +2272,7 @@ const PP_CHAVE = 'fds_palpite_proxima_v1';
 const PP_RUIDO = 0.015;     // piso de ruido entre duas rodadas de MC (medido em mc-benchmark)
 const PP_IDX = {C: 0, E: 1, F: 2};
 let ppModo = 'passadas';
+let ppRodada = 'dia';   // 'dia' = sorteio do dia, ou o numero da rodada escolhida no seletor
 let ppSeqPassadas = null, ppSeqProxima = null;
 
 function ppQuadrado(p){ return p >= 50 ? '🟩' : p >= 25 ? '🟨' : '🟥'; }
@@ -2295,11 +2304,51 @@ function ppSorteia(pool, sem, n){
   }
   return ordem.slice(0, n).map(i => pool[i]);
 }
+/* Rodadas disputadas da temporada corrente, da mais recente pra mais
+   antiga, com quantos jogos cada uma tem no pool. Rodada com jogo
+   adiado entra mesmo incompleta (o pool so traz jogo ja disputado),
+   e o rotulo mostra a contagem justamente quando ela nao esta cheia. */
+function ppRodadasPool(){
+  const conta = new Map();
+  for (const j of DATA.palpite.pool) conta.set(j.md, (conta.get(j.md) || 0) + 1);
+  const cheia = Math.max(...conta.values());
+  return [...conta.entries()].sort((a, b) => b[0] - a[0])
+    .map(([md, n]) => ({md, n, cheia: n === cheia}));
+}
+function ppJogosPool(md){
+  return DATA.palpite.pool.filter(j => j.md === md)
+    .sort((a, b) => a.data < b.data ? -1 : a.data > b.data ? 1 : a.id - b.id);
+}
+/* Sorteio do dia: 4 jogos das ultimas DATA.palpite.janela rodadas, nao
+   do pool inteiro -- ele agora vai ate a rodada 1 pra alimentar o
+   seletor, e cair num jogo de marco pra quem abriu o site em setembro
+   nao e o que esse modo quer. Mesma janela de antes, so que aplicada
+   aqui em vez de no build. */
+function ppSorteioDoDia(dia){
+  const ultima = Math.max(...DATA.palpite.pool.map(j => j.md));
+  const recentes = DATA.palpite.pool.filter(j => j.md > ultima - DATA.palpite.janela);
+  return ppSorteia(recentes, ppSemente(dia), 4);
+}
 function ppMontarPassadas(host){
+  if (!DATA.palpite.pool.length){
+    host.innerHTML = `<div class="card"><p class="note">Nenhuma rodada disputada nesta
+      temporada ainda. Assim que a bola rolar, os jogos aparecem aqui.</p></div>`;
+    return;
+  }
   const hoje = new Date().toLocaleDateString('sv-SE');
-  const jogos = ppSorteia(DATA.palpite.pool, ppSemente(hoje), 4);
-  ppSeqPassadas = {jogos, atual: 0, respostas: [], barras: null, timer: null, dia: hoje};
+  const rodadas = ppRodadasPool();
+  const escolhida = ppRodada === 'dia' ? null : Number(ppRodada);
+  const jogos = escolhida === null ? ppSorteioDoDia(hoje) : ppJogosPool(escolhida);
+  ppSeqPassadas = {jogos, atual: 0, respostas: [], barras: null, dia: hoje, rodada: escolhida};
   host.innerHTML = `
+    <div class="pp-escolha">
+      <span class="rot">O que jogar</span>
+      <span class="field"><select id="ppRodadaSel" aria-label="Escolha a rodada">
+        <option value="dia"${escolhida === null ? ' selected' : ''}>Sorteio do dia · 4 jogos</option>
+        ${rodadas.map(r => `<option value="${r.md}"${r.md === escolhida ? ' selected' : ''}>${
+          `Rodada ${r.md}${r.cheia ? '' : ` · ${r.n} jogos`}`}</option>`).join('')}
+      </select></span>
+    </div>
     <div class="card">
       <div class="pp-passos"><div class="pp-pontos" id="ppPontos1"></div>
         <span class="qual" id="ppQual1"></span><span class="placar" id="ppPlacar1"></span></div>
@@ -2308,10 +2357,12 @@ function ppMontarPassadas(host){
       <div id="ppRevela1"></div>
     </div>
     <div class="card" id="ppFim1" hidden style="margin-top:var(--s5)"></div>
-    <p class="note" style="margin-top:var(--s4)">Quatro jogos sorteados a partir da data de hoje,
-      todo mundo que jogar hoje pega os mesmos quatro. Sua pontuação é a probabilidade que você deu
-      ao que aconteceu: deu 52% à vitória do mandante e o mandante venceu, são 52 pontos. O modelo
-      joga com a mesma régua.</p>`;
+    <p class="note" style="margin-top:var(--s4)">${escolhida === null
+      ? `Quatro jogos sorteados a partir da data de hoje, todo mundo que jogar hoje pega os mesmos
+         quatro.` : `A rodada ${escolhida} inteira, na ordem em que os jogos aconteceram.`} Sua
+      pontuação é a probabilidade que você deu ao que aconteceu: deu 52% à vitória do mandante e o
+      mandante venceu, são 52 pontos. O modelo joga com a mesma régua.</p>`;
+  $('#ppRodadaSel').addEventListener('change', e => { ppRodada = e.target.value; ppPintar(); });
   ppPassosPintar1();
   ppMontarJogo1();
 }
@@ -2325,7 +2376,6 @@ function ppPassosPintar1(){
 }
 function ppMontarJogo1(){
   const st = ppSeqPassadas;
-  clearTimeout(st.timer);
   if (st.barras) st.barras.destruir();
   const j = st.jogos[st.atual];
   ppPassosPintar1();
@@ -2336,7 +2386,7 @@ function ppMontarJogo1(){
     rotulos: [`Vitória do ${j.casa}`, 'Empate', `Vitória do ${j.fora}`],
     valores: [0, 100, 0]
   });
-  $('#ppAcao1').innerHTML = '<button class="btn solid" type="button" id="ppOk1">Confirmar palpite</button>';
+  $('#ppAcao1').innerHTML = '<button class="btn solid pp-next" type="button" id="ppOk1">Confirmar palpite</button>';
   $('#ppOk1').addEventListener('click', ppConfirmar1);
 }
 function ppConfirmar1(){
@@ -2378,18 +2428,20 @@ function ppConfirmar1(){
         <span class="tx">Você deu <b>${pv}%</b> ao que aconteceu; o modelo dava <b>${pm}%</b>.<br>${verd}</span>
       </div>
       <div class="pp-avanca">
-        <div class="pp-tbar"><i id="ppTb1"></i></div>
-        <button class="btn" type="button" id="ppNext1">${st.atual + 1 < st.jogos.length ? 'Próximo jogo' : 'Ver o resumo'}</button>
+        <button class="btn solid pp-next" type="button" id="ppNext1">${st.atual + 1 < st.jogos.length ? 'Próximo jogo' : 'Ver o resumo'}</button>
       </div>
     </div>`;
   ppPassosPintar1();
   $('#ppNext1').addEventListener('click', ppAvancar1);
-  requestAnimationFrame(() => { const tb = $('#ppTb1'); if (tb) tb.style.width = '100%'; });
-  if (!REDUCED) st.timer = setTimeout(ppAvancar1, 4200);
+  /* Sem avanco automatico, o botao nao pode ficar abaixo da dobra: traz
+     a revelacao inteira pra tela. Disparado pelo clique do usuario, nao
+     por timer. */
+  $('#ppRevela1').scrollIntoView({block: 'nearest', behavior: REDUCED ? 'auto' : 'smooth'});
 }
 function ppAvancar1(){
+  /* So o clique no botao avanca: a revelacao fica na tela o tempo que
+     o usuario quiser. Nao repor timer aqui. */
   const st = ppSeqPassadas;
-  clearTimeout(st.timer);
   st.atual++;
   if (st.atual < st.jogos.length) ppMontarJogo1(); else ppTerminar1();
 }
@@ -2403,12 +2455,15 @@ function ppTerminar1(){
   const grid = st.respostas.map(r => ppQuadrado(r.pv)).join('');
   const dif = pv - pm;
   const titulo = dif > 0 ? 'Você bateu o modelo' : dif < 0 ? 'O modelo levou' : 'Empate com o modelo';
-  const texto = `Seu palpite · Fora da Súmula\n${st.respostas.length} jogos de ${ppFmtData(st.dia)}\n\n${grid}\nVocê ${pv} · modelo ${pm}\n\nforadasumula.com.br`;
+  const cab = st.rodada === null
+    ? `${st.respostas.length} jogos de ${ppFmtData(st.dia)}`
+    : `Rodada ${st.rodada} · ${st.respostas.length} jogos`;
+  const texto = `Seu palpite · Fora da Súmula\n${cab}\n\n${grid}\nVocê ${pv} · modelo ${pm}\n\nforadasumula.com.br`;
 
   const fim = $('#ppFim1');
   fim.hidden = false;
   fim.innerHTML = `
-    <div class="eyebrow"><span>Resumo</span><span class="dv"></span><span>${st.respostas.length} jogos</span></div>
+    <div class="eyebrow"><span>Resumo</span><span class="dv"></span><span>${cab}</span></div>
     <h3 style="font-size:clamp(22px,3.8vw,28px);font-family:var(--f-serif);font-weight:400;margin-top:var(--s2)">${titulo}</h3>
     <div class="pp-total">
       <div class="pp-tot voce"><div class="k">Você</div><div class="v">${pv}</div></div>
@@ -2424,6 +2479,8 @@ function ppTerminar1(){
     <div class="btnrow" style="margin-top:var(--s5)">
       <button class="btn solid" type="button" id="ppShare1">Copiar resultado</button>
       <button class="btn" type="button" id="ppVer1">Ver o texto</button>
+      <button class="btn ghost" type="button" id="ppDeNovo1">${st.rodada === null
+        ? 'Jogar de novo' : 'Jogar esta rodada de novo'}</button>
     </div>
     <textarea class="pp-saida" id="ppSaida1" rows="7" readonly hidden>${esc(texto)}</textarea>
     <p class="note" style="margin-top:var(--s4)">Nada disso sai do seu navegador: o resumo não é
@@ -2438,6 +2495,9 @@ function ppTerminar1(){
   $('#ppVer1').addEventListener('click', () => {
     const s = $('#ppSaida1'); s.hidden = !s.hidden; if (!s.hidden) s.select();
   });
+  /* Escolher a MESMA rodada no seletor nao dispara 'change', entao o
+     recomeco tem botao proprio. */
+  $('#ppDeNovo1').addEventListener('click', ppPintar);
 }
 
 /* ---------- Modo 2: próxima rodada, resolução adiada ----------- */

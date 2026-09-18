@@ -243,6 +243,9 @@ def build_data() -> dict:
     matches_all = pd.read_parquet(RAW / "matches.parquet")
     palpite = {
         "pool": build_palpite_pool(short_names),
+        # janela do sorteio do dia (Modo 1), aplicada no navegador -- o pool
+        # inteiro vai no payload pro seletor de rodada, ver build_palpite_pool
+        "janela": PALPITE_JANELA_POOL,
         "proxima": build_palpite_proxima(matches, short_names, last_rating, updated),
         "mc": build_palpite_mc(matches_all, matches, team_order, teams, last_rating),
     }
@@ -458,21 +461,25 @@ def build_proxima_rodada(short_names: dict[int, str]) -> list[dict]:
     return out
 
 
-PALPITE_JANELA_POOL = 8  # ultimas N rodadas no pool de jogos passados do mini-game (Modo 1)
+PALPITE_JANELA_POOL = 8  # ultimas N rodadas no sorteio do dia do mini-game (Modo 1)
 
 
 def build_palpite_pool(short_names: dict[int, str]) -> list[dict]:
-    """Jogos passados pro Modo 1 do mini-game 'Seu palpite': as ultimas
-    PALPITE_JANELA_POOL rodadas da temporada corrente, com o rating
-    PRE-jogo real de cada lado -- le match_ratings.parquet (gravado por
+    """Jogos passados pro Modo 1 do mini-game 'Seu palpite': TODAS as
+    rodadas ja disputadas da temporada corrente, com o rating PRE-jogo
+    real de cada lado -- le match_ratings.parquet (gravado por
     derived.py), nao o snapshot por rodada de elo_ratings.parquet, que
     erra nos jogos adiados (mesma razao do corte por utc_date usado em
-    build_form_and_next)."""
+    build_form_and_next).
+
+    O pool vai inteiro porque o seletor de rodada do Modo 1 deixa jogar
+    qualquer rodada disputada. PALPITE_JANELA_POOL nao corta mais nada
+    aqui: viaja no payload (palpite.janela) e so limita o sorteio do dia,
+    la no navegador, pra ele continuar caindo em jogo recente."""
     mr = pd.read_parquet(PROCESSED / "match_ratings.parquet")
     cur = mr[mr["season"] == CURRENT_SEASON].sort_values("date")
-    corte = int(cur["round"].max()) - PALPITE_JANELA_POOL + 1
     out = []
-    for row in cur[cur["round"] >= corte].itertuples(index=False):
+    for row in cur.itertuples(index=False):
         hg, ag = int(row.home_goals), int(row.away_goals)
         out.append(
             {

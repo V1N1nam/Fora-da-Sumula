@@ -33,11 +33,15 @@ com rating ainda nao convergido (mesmo viés de aquecimento discutido no
 CLAUDE.md sobre o teste do openfootball). 2024-2026 herdam rating ja
 rodado e nao tem esse problema.
 
-Uso: python check_aproveitamento.py
+Uso:
+  python check_aproveitamento.py              # taxas por temporada
+  python check_aproveitamento.py --jogos 30   # + os 30 jogos mais recentes,
+                                              #   um a um, previsto vs real
 """
 
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -154,7 +158,63 @@ def imprime(season: int, res: dict) -> None:
     print()
 
 
+# ----------------------------------------------------- jogo a jogo
+
+def jogo_a_jogo(df: pd.DataFrame, n: int) -> None:
+    """Os n jogos mais recentes POR DATA, nao por numero de rodada.
+    Rodada com jogo adiado e remarcado (POSTPONED sem data nova na hora
+    do sorteio) volta a ser disputada semanas depois, entao cortar por
+    matchday cru misturaria jogo velho com recente -- e o mesmo erro que
+    o CLAUDE.md registra em build_form_and_next e zebra_provavel."""
+    recentes = df.sort_values("date").tail(n)
+
+    p_home, p_draw, p_away = davidson_probs(
+        recentes["r_home_pre"].to_numpy(), recentes["r_away_pre"].to_numpy(), ELO_HFA, ELO_DRAW_NU
+    )
+    probs = np.column_stack([p_home, p_draw, p_away])
+    vias = np.array(["home", "draw", "away"])
+    favorito = vias[probs.argmax(axis=1)]
+
+    hg = recentes["home_goals"].to_numpy()
+    ag = recentes["away_goals"].to_numpy()
+    real = np.where(hg > ag, "home", np.where(hg == ag, "draw", "away"))
+    acerto = favorito == real
+
+    print(f"=== os {len(recentes)} jogos mais recentes, previsto vs real ===")
+    print("(ordem cronologica; R = rodada, prob. no rating vigente na data do jogo)")
+    print()
+
+    for i, row in enumerate(recentes.itertuples(index=False)):
+        casa = f"{row.home_team[:22]:>22}"
+        fora = f"{row.away_team[:22]:<22}"
+        placar = f"{int(row.home_goals)}-{int(row.away_goals)}"
+        fav = {"home": "casa", "draw": "empate", "away": "fora"}[favorito[i]]
+        marca = "OK " if acerto[i] else "ERRO"
+        print(
+            f"  {marca} R{int(row.round):<2} {row.date.strftime('%d/%m')} "
+            f"{casa} {placar:^5} {fora} "
+            f"casa {100 * p_home[i]:4.1f}% / E {100 * p_draw[i]:4.1f}% / "
+            f"fora {100 * p_away[i]:4.1f}%  -> favorito: {fav}"
+        )
+
+    print()
+    print(f"  acerto nesse recorte: {int(acerto.sum())}/{len(recentes)} = {100 * acerto.mean():.1f}%")
+    for via, label in LABELS.items():
+        mask = real == via
+        if not mask.sum():
+            continue
+        print(f"    {label:<20} {int(acerto[mask].sum()):>2}/{int(mask.sum()):<2}")
+    print()
+
+
 def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument(
+        "--jogos", type=int, default=0,
+        help="lista os N jogos mais recentes (por data) um a um, previsto vs real",
+    )
+    args = ap.parse_args()
+
     df = load_jogos()
     print(
         f"parametros em uso (config.py, nada recalibrado aqui): "
@@ -162,6 +222,9 @@ def main() -> None:
     )
     print(f"base: {len(df)} jogos com placar preenchido, {df['date'].min().date()} a {df['date'].max().date()}")
     print()
+
+    if args.jogos:
+        jogo_a_jogo(df, args.jogos)
 
     resultados = {}
     for season in SEASONS:
